@@ -3,6 +3,6 @@ We do the operating of the systems
 
 # Contributors
 
-*Samyak K. Gupta (skg85)
-*Danniel Pattahil ()
-*Kaitlin Dickerson ()
+* Samyak K. Gupta (skg85)
+* Danniel Pattahil ()
+* Kaitlin Dickerson ()
