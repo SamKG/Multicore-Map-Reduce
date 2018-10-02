@@ -5,4 +5,4 @@ We do the operating of the systems
 
 * Samyak K. Gupta (skg85)
 * Daniel Pattathil (dp865)
-* Kaitlin Dickerson ()
+* Kaitlin Dickerson (ked139)
