@@ -6,3 +6,6 @@ We do the operating of the systems
 * Samyak K. Gupta (skg85)
 * Daniel Pattathil (dp865)
 * Kaitlin Dickerson (ked139)
+
+# Documentation
+See docs/ for details
