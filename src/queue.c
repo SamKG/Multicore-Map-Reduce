@@ -53,24 +53,8 @@ const int QUEUE_SIZE_T = sizeof(Queue);
 * char* name	-	The name to assign to the shared memory space of the queue
 */
 Queue* new_queue(char* name){		
-	int shared_fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0666);
-	
-	/* Incase of error */
-	while (shared_fd == -1){
-		switch(errno){
-			case EEXIST: /* Already exists; We have to simply mmap and return region */
-				shared_fd = shm_open(name, O_RDWR, 0666);
-				Queue* queue = (Queue*) mmap(NULL, QUEUE_SIZE_T, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_SHARED, shared_fd,0);
-				return queue;
-			default:
-				return NULL;
-				break;
-		}
-	}
+	int shared_fd = get_shared_fd(name,QUEUE_SIZE_T);
 
-	/* Set shared memory size */
-	ftruncate(shared_fd,QUEUE_SIZE_T);
-	
 	/* Create the memory mapped region */
 	Queue* queue = (Queue*) mmap(NULL, QUEUE_SIZE_T, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_SHARED,shared_fd,0);
 	

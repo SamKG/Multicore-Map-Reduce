@@ -13,7 +13,11 @@
 typedef struct process_pool{
 	int process_count;
 	Queue* parameter_queue;
-	char* name;n
+	char* name;
+} ProcessPool;
+
+ProcessPool* new_process_pool(char* name, int number_workers){
+
 }
 
 

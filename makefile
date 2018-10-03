@@ -1,10 +1,11 @@
-CC=gcc
-CFLAGS=-Isrc
-DEPS=./src 
-
-SRCDIR=./src
-ODIR=$(SRCDIR)/obj
 BINDIR=./bin
+SRCDIR=./src
+INCDIR=$(SRCDIR)/include
+ODIR=$(SRCDIR)/obj
+
+CC=gcc
+CFLAGS=-I$(INCDIR)
+DEPS=./src 
 
 LIBS=-lpthread -lrt
 
