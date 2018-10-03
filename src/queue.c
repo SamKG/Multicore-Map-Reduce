@@ -35,13 +35,6 @@ typedef struct Queue{
 
 const int QUEUE_SIZE_T = sizeof(Queue);
 
-
-int main(void){
-	return 0;
-}
-
-
-
 /**
 * Returns a pointer to a queue, present in a shared memory space.
 *
