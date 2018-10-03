@@ -12,8 +12,6 @@ LIBS=-lpthread -lrt
 $(ODIR)/%.o: $(SRCDIR)/%.c 
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-queue: $(ODIR)/queue.o
-	$(CC) -o $(BINDIR)/$@ $^ $(CFLAGS) $(LIBS)
 
 .PHONY: clean
 clean:

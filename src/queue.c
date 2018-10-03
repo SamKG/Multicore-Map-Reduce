@@ -14,7 +14,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-
+#include <sharedmem.h>
 /* CONSTANTS */
 #define MAX_QUEUE_SIZE 100
 #define MAX_QUEUE_NAME_SIZE 256
@@ -40,24 +40,32 @@ typedef struct Queue{
 	int front_pos;
 	int back_pos;
 	Node array[MAX_QUEUE_SIZE];
-	char[MAX_QUEUE_NAME_SIZE] name;			
+	char name[MAX_QUEUE_NAME_SIZE];			
 } Queue;
 
 
-const int QUEUE_SIZE_T = sizeof(Queue);
 
+const int QUEUE_SIZE_T = sizeof(Queue);
+const char* QUEUE_NAME_MODIFIER = "_QUEUE"
 /**
 * Returns a pointer to a queue, present in a shared memory space. If the queue already exists, returns a pointer to it.
 *
 * inputs:
 * char* name	-	The name to assign to the shared memory space of the queue
 */
-Queue* new_queue(char* name){		
-	int shared_fd = get_shared_fd(name,QUEUE_SIZE_T);
+Queue* new_queue(char* name){	
+	char* new_name = append_string(name,"_QUEUE");
+	int exists_flag = 0;
+	int shared_fd = get_shared_fd(new_name,QUEUE_SIZE_T,&exists_flag);
 
 	/* Create the memory mapped region */
 	Queue* queue = (Queue*) mmap(NULL, QUEUE_SIZE_T, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_SHARED,shared_fd,0);
 	
+	/* We don't need to reinitialize stuff, cause it already exists */
+	if (exists_flag){
+		goto cleanup;	
+	}
+
 	/* Initialize attributes for mutex */
 	pthread_mutexattr_init(&(queue->mutex_attr));
 	pthread_mutexattr_setpshared(&(queue->mutex_attr), PTHREAD_PROCESS_SHARED);
@@ -71,16 +79,19 @@ Queue* new_queue(char* name){
 	queue->count = 0;
 	queue->front_pos = 0;
 	queue->back_pos = 0;
-
-	strcpy(queue->name,name);
-r	
+	
+	strcpy(queue->name,new_name);
+	
 	/* Done initializing; We can now return the queue. */
 	pthread_mutex_unlock(&(queue->mutex));
-	
+
+	cleanup:
+
+	free(new_name);
 	return queue;
 }
 
 
 void queue_insert(Queue* queue, void* data, size_t data_size){
-	
+			
 }	
