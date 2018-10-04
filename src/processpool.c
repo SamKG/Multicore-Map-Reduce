@@ -18,6 +18,7 @@ typedef struct process_pool{
 	Queue* parameter_queue;
 	pthread_mutex_t mutex;
 	pthread_mutexattr_t mutex_attr;
+	int processes[MAX_POOL_SIZE];
 	char name[MAX_POOL_NAME_SIZE];
 } ProcessPool;
 
@@ -55,7 +56,19 @@ ProcessPool* new_process_pool(char* name, int number_workers){
 
         strcpy(pool->name,new_name);
 	pool->queue = new_queue(name);
+
+	while (pool->process_count < number_workers){
+		int pid = fork();
+		if (pid == 0){
+			// Handle child process
+		}
+		else{
+			pool->processes[pool->process_count] = pid;
+			pool->process_count++;
+		}
+	}
 	
+		
         /* Done initializing; We can now return the queue. */
         pthread_mutex_unlock(&(pool->mutex));
 
@@ -63,4 +76,14 @@ ProcessPool* new_process_pool(char* name, int number_workers){
 
 	free(new_name);
         return pool;
+}
+
+
+void start_worker(ProcessPool* pool){
+	while(1){
+		pthread_cond_wait(pool->parameter_queue->condition_changed);
+		Node instruction = queue_dequeue(&(pool->parameter_queue));
+		
+	}
+		
 }

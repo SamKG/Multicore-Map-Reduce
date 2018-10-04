@@ -4,7 +4,15 @@
 * Responsibilities: Handling all shm_open calls
 */
 
-
+#include <errno.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <string.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <sharedmem.h>
 
 /**
 * Gets a fd for the shared memory, given a name and size. If none exists, it creates it first.

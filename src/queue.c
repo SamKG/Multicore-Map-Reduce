@@ -8,6 +8,8 @@
 
 
 #include <pthread.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <fcntl.h> 
 #include <unistd.h>
 #include <string.h>
@@ -26,7 +28,7 @@
 * 
 */
 typedef struct Node{
-	void* data;
+	char data[256];
 } Node;
 
 /**
@@ -36,9 +38,10 @@ typedef struct Node{
 typedef struct Queue{
 	pthread_mutex_t mutex;
 	pthread_mutexattr_t mutex_attr;
+	pthread_cond_t condition_changed;
+	pthread_condattr_t condition_attr;
 	int count;
-	int front_pos;
-	int back_pos;
+	int front_pos,rear_pos;
 	Node array[MAX_QUEUE_SIZE];
 	char name[MAX_QUEUE_NAME_SIZE];			
 } Queue;
@@ -46,7 +49,7 @@ typedef struct Queue{
 
 
 const int QUEUE_SIZE_T = sizeof(Queue);
-const char* QUEUE_NAME_MODIFIER = "_QUEUE"
+const char* QUEUE_NAME_MODIFIER = "_QUEUE";
 /**
 * Returns a pointer to a queue, present in a shared memory space. If the queue already exists, returns a pointer to it.
 *
@@ -75,10 +78,14 @@ Queue* new_queue(char* name){
 
 	/* Lock the mutex while we initialize the queue */
 	pthread_mutex_lock(&(queue->mutex));
-	
+
+	pthread_condattr_init(&(queue->condition_attr));	
+	pthread_condattr_setpshared(&(queue->condition_attr),PTHREAD_PROCESS_SHARED);
+	pthread_cond_init(&(queue->condition_changed),&(queue->condition_attr));
+		
 	queue->count = 0;
-	queue->front_pos = 0;
-	queue->back_pos = 0;
+	queue->front_pos = 0; 
+	queue->rear_pos = MAX_QUEUE_SIZE - 1;
 	
 	strcpy(queue->name,new_name);
 	
@@ -91,7 +98,62 @@ Queue* new_queue(char* name){
 	return queue;
 }
 
+bool queue_is_empty(Queue* queue){
+	return queue->count == 0;
+}
 
-void queue_insert(Queue* queue, void* data, size_t data_size){
-			
+bool queue_is_full(Queue* queue){
+	return queue->count == MAX_QUEUE_SIZE - 1;
+}
+Node queue_dequeue(Queue* queue){
+	Node return_value;
+	
+	pthread_mutex_lock(&(queue->mutex));
+	if (queue_is_empty(queue)){
+		goto cleanup;
+	}
+	return_value = queue->array[queue->front_pos];
+	queue->front_pos = (queue->front_pos + 1) % MAX_QUEUE_SIZE;
+	queue->count--;	
+	
+	cleanup:
+	pthread_mutex_unlock(&(queue->mutex));
+
+	pthread_cond_signal(&(queue->condition_changed));	
+	return return_value;
+}
+
+
+void queue_enqueue(Queue* queue, Node data){
+	
+	pthread_mutex_lock(&(queue->mutex));
+	if (queue_is_full(queue)){
+		goto cleanup;
+	}
+	
+	queue->rear_pos  = (queue->rear_pos + 1) % MAX_QUEUE_SIZE;
+	queue->array[queue->rear_pos] = data;
+	queue->count++;	
+	
+	cleanup:
+	pthread_mutex_unlock(&(queue->mutex));
+	
+	pthread_cond_signal(&(queue->condition_changed));	
+}
+
+
+
+int main(void){
+	Queue* testqueue = new_queue("testy");
+	
+	Node tmp;
+	tmp.data[0] = 'a';
+	tmp.data[1] = '\0';
+	
+	queue_enqueue(testqueue,tmp);
+	printf("%d %d %d\n",queue_is_empty(testqueue),queue_is_full(testqueue),testqueue->count);
+	Node tmp2 = queue_dequeue(testqueue);
+	printf("%s\n",tmp2.data);
+	return 0;
+
 }	
