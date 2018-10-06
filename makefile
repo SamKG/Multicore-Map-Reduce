@@ -4,7 +4,7 @@ INCDIR=$(SRCDIR)/include
 ODIR=$(SRCDIR)/obj
 
 CC=gcc
-CFLAGS=-I $(INCDIR) -Wfatal-errors -Wall -g
+CFLAGS=-I $(INCDIR) -Wfatal-errors -Wall -g -std=c11
 DEPS=$(ODIR)/processpool.o $(ODIR)/queue.o $(ODIR)/sharedmem.o $(ODIR)/threadpool.o
 
 LIBS=-lpthread -lrt

@@ -57,6 +57,7 @@ ThreadPool* new_thread_pool(char* name, int number_workers){
 	pool->running = 1;
 
 	while (pool->thread_count < number_workers){
+		printf("INIT THREAD %d\n",pool->thread_count);
 		pthread_create(&(pool->threads[pool->thread_count]),NULL,&start_thread_worker,(void*)pool);
 		pool->thread_count++;
 	}
@@ -76,6 +77,7 @@ void destroy_thread_pool(ThreadPool* pool){
 	printf("DESTROYING THREAD POOL\n");
 	pool->running = 0;
 	for (int i = 0 ; i < pool->thread_count ; i++){
+
 		printf("JOINED\n");
 		pthread_join(pool->threads[i],NULL);
 	}
@@ -87,13 +89,29 @@ void destroy_thread_pool(ThreadPool* pool){
 void* start_thread_worker(void* pool_ptr){
 	ThreadPool* pool = pool_ptr;
 	struct timespec tm;
-	while(pool->running){
+	pthread_t tid = pthread_self();
+	printf("THREAD %d STARTED\n",tid);
+	while(1){
 		tm.tv_sec = time(NULL) + 1;
 		int er = pthread_cond_timedwait(&(pool->parameter_queue->condition_changed),&(pool->parameter_queue->mutex),&tm);
-		if (er == ETIMEDOUT){ continue; }
+		if (er == ETIMEDOUT){ 
+			//printf("THREAD TIMEOUT %d\n",tid);
+			if (pool->running == 0){
+				pthread_mutex_lock(&(pool->mutex));
+				printf("\tMUTEX LOCKED\n");
+				pool->thread_count--;
+				printf("\tMUTEX UNLOCKING\n");
+				pthread_mutex_unlock(&(pool->mutex));
+				pthread_mutex_unlock(&(pool->parameter_queue->mutex));				
+				break;
+			}
+			continue; 
+		}
+		//printf("THREAD TICK %d\n",tid);
 		Node instruction = queue_dequeue_private(pool->parameter_queue);
-		printf("RECEIVED DATA %s\n",(char*)(general_shm_ptr+instruction.data));				
+		printf("RECEIVED DATA %s %d\n",(char*)(general_shm_ptr+instruction.data),tid);
+		pthread_mutex_unlock(&(pool->parameter_queue->mutex));				
 	}
-	printf("RET\n");
+	
 	pthread_exit(NULL);
 }

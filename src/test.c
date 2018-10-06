@@ -31,14 +31,14 @@ int main(void){
 	printf("%d Final allocation of ram\n",planned_ram);
 	// NOTE: We might have to make this shm general pool reaaaaally big, cause resize doesn't work for some reason :/
 	shm_init_general(planned_ram);
-	ThreadPool* pool = new_thread_pool("TEST3",1);
-	for (int i = 0 ; i < 10; i++){
+	ThreadPool* pool = new_thread_pool("TEST3",10);
+	for (int i = 0 ; i < 1; i++){
 		Node tmp;
 		tmp.data = shm_get_general(256);
 		sprintf((char*)(general_shm_ptr+tmp.data),"test %d",i);
 		queue_enqueue(pool->parameter_queue,tmp);
 	}	
-	sleep(1);
+	sleep(4);
 	destroy_thread_pool(pool);
 	shm_destroy_general();
 	printf("END\n");	
