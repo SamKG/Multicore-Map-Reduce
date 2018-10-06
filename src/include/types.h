@@ -2,6 +2,7 @@
 #define TYPES_H
 
 #include <sys/types.h>
+#include <pthread.h>
 
 #define MAX_QUEUE_SIZE 10000
 #define MAX_QUEUE_NAME_SIZE 256
@@ -49,6 +50,18 @@ typedef struct process_pool{
         char name[MAX_POOL_NAME_SIZE];
 } ProcessPool;
 
+/**
+* Threadsafe thread pool used to allow management of process pool
+*/
+typedef struct thread_pool{
+        int thread_count;;
+	int running;
+        Queue* parameter_queue;
+        pthread_mutex_t mutex;
+        pthread_mutexattr_t mutex_attr;
+	pthread_t threads[MAX_POOL_SIZE];
+        char name[MAX_POOL_NAME_SIZE];
+} ThreadPool;
 /**
 * Key-Value pair for usage in being passed around
 */

@@ -5,17 +5,17 @@ ODIR=$(SRCDIR)/obj
 
 CC=gcc
 CFLAGS=-I $(INCDIR) -Wfatal-errors -Wall -g
-DEPS=./src 
+DEPS=$(ODIR)/processpool.o $(ODIR)/queue.o $(ODIR)/sharedmem.o $(ODIR)/threadpool.o
 
 LIBS=-lpthread -lrt
 
 $(ODIR)/%.o: $(SRCDIR)/%.c 
 	$(CC) -c -o $@ $< $(CFLAGS) $(LIBS)
 
-mapred: $(ODIR)/mapred.o $(ODIR)/processpool.o $(ODIR)/queue.o $(ODIR)/sharedmem.o
+mapred: $(ODIR)/mapred.o $(DEPS)
 	$(CC) $^ -o $(BINDIR)/$@ $(CFLAGS) $(LIBS)
 
-test: $(ODIR)/test.o $(ODIR)/processpool.o $(ODIR)/queue.o $(ODIR)/sharedmem.o
+test: $(ODIR)/test.o $(DEPS)
 	$(CC) $^ -o $(BINDIR)/$@ $(CFLAGS) $(LIBS)
 	
 .PHONY: clean

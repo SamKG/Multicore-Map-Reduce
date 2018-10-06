@@ -52,6 +52,7 @@ ProcessPool* new_process_pool(char* name, int number_workers){
 
         strcpy(pool->name,new_name);
 	pool->parameter_queue = new_queue(name);
+	pool->process_count = 0;
 
 	while (pool->process_count < number_workers){
 		errno = 0;
