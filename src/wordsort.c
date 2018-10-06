@@ -13,44 +13,70 @@ int map(int offset, int size){
      int chunksz = sizeof(DataChunk);
      int keyvalsz = sizeof(key_value);
      key_value temp_kv;
-
-
-     //This is the offset for the resulting array of mappped key_value pairs
-     int mappedOffset = shm_get_general(size * keyvalsz);
+     key_value keyvalues[size];
 
      //This is creating an array of KeyValue pairs with offset values to chunks
      for(i = 0; i < size; i++)
      {
-          temp_kv->key_offset = (offset + (i * chunksz));
-          temp_kv->value = 1;
-          *((key_value*) ptr + mappedOffset + (i * keyvalsz)) = temp_kv;
+          keyvalues[i].key_offset = (offset + (i * chunksz));
+          keyvalues[i].value = 1;
      }
 
-
      //This is to sort the array of KeyValue pairs
-     DataChunk* left_chunk;
-     DataChunk* right_chunk;
-     key_value* left_key;
-     key_value* right_key;
+     DataChunk* next_chunk;
+     DataChunk* prev_chunk;
 
      for (i = 1 ; i < size; i++) {
           j = i;
           while (j > 0){
-               left_key = ptr + mappedOffset + ((j-1) * keyvalsz);
-               right_key = ptr + mappedOffset + (j * keyvalsz);
-               left_chunk = left_key->key_offset + ptr;
-               right_chunk = right_chunk->key_offset + ptr;
+               next_chunk = keyvalues[j].key_offset + ptr;
+               prev_chunk = keyvalues[j-1].key_offset + ptr;
 
                //sort these tokens in order
-               if(strcmp(left_chunk->data, right_chunk->data) > 0)
+               if(strcmp(next_chunk->data, prev_chunk->data) > 0)
                {
                     break;
                }
 
-               temp_kv = *right_key;
-               *(right_key) = *(left_key);
-               *(left_key) = temp;
+               temp_kv = keyvalues[j];
+               keyvalues[j] = keyvalues[j-1];
+               keyvalues[j] = temp_kv;
                j--;
-    }
-  }
+          }
+     }
+
+     int index;
+     int count = 0;
+     for(i = 0; i < size; i++){
+          index = i;
+          count++;
+          prev_chunk = keyvalues[index].key_offset + ptr;
+          j = i+1;
+          while(j < size){
+               next_chunk = keyvalues[j].key_offset + ptr;
+               if(strcmp(prev_chunk->data, prev_chunk->data) == 0)
+               {
+                    keyvalues[index].value+=1;
+                    keyvalues[j] == NULL;
+               }
+               else{
+                    i = j;
+               }
+          }
+     }
+
+     //This is the offset for the resulting array of mappped key_value pairs
+     int mappedOffset = shm_get_general(count * keyvalsz);
+     for(i = 0, j = 0; i < size; i++)
+     {
+          if(keyvalues[i] == NULL){
+               continue;
+          }
+          else{
+               *(ptr + mappedOffset + (j * keyvalsz)) = keyvalues[i];
+               j++;
+          }
+     }
+
+     return mappedOffset;
 }
