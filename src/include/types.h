@@ -19,7 +19,7 @@ typedef enum datatype{LONG, STRING, DOUBLE} DataType;
 typedef struct datachunk{
 	int size;
 	DataType data_type;
-	void* data
+	int data;
 } DataChunk;	
 
 /**
@@ -76,7 +76,7 @@ typedef struct thread_pool{
 */
 
 typedef struct key_value{
-	char* key;
+	int key_offset;;
 	ValueType value;
 } KeyValue;
 
