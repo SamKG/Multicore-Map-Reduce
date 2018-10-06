@@ -28,7 +28,7 @@ const int THREAD_POOL_SIZE = sizeof(ThreadPool);
 *	
 */
 ThreadPool* new_thread_pool(char* name, int number_workers){
-	printf("INITIALIZING POOL\n");
+	printf("INITIALIZING TPOOL\n");
 	char* new_name = append_string(name,"_TPOOL");
         int exists_flag = 0;
 	int shared_fd = get_shared_fd(new_name,THREAD_POOL_SIZE,&exists_flag);
@@ -57,7 +57,7 @@ ThreadPool* new_thread_pool(char* name, int number_workers){
 	pool->running = 1;
 
 	while (pool->thread_count < number_workers){
-		printf("INIT THREAD %d\n",pool->thread_count);
+		printf("\tINIT THREAD %d\n",pool->thread_count);
 		pthread_create(&(pool->threads[pool->thread_count]),NULL,&start_thread_worker,(void*)pool);
 		pool->thread_count++;
 	}
@@ -69,7 +69,7 @@ ThreadPool* new_thread_pool(char* name, int number_workers){
 	cleanup:
 
 	free(new_name);
-	printf("DONE INITIALIZING POOL (%d WORKERS CREATED)\n",pool->thread_count);
+	printf("DONE INITIALIZING TPOOL (%d WORKERS CREATED)\n",pool->thread_count);
         return pool;
 }
 
@@ -90,7 +90,6 @@ void* start_thread_worker(void* pool_ptr){
 	ThreadPool* pool = pool_ptr;
 	struct timespec tm;
 	pthread_t tid = pthread_self();
-	printf("THREAD %d STARTED\n",tid);
 	while(1){
 		tm.tv_sec = time(NULL) + 1;
 		int er = pthread_cond_timedwait(&(pool->parameter_queue->condition_changed),&(pool->parameter_queue->mutex),&tm);
@@ -98,9 +97,7 @@ void* start_thread_worker(void* pool_ptr){
 			//printf("THREAD TIMEOUT %d\n",tid);
 			if (pool->running == 0){
 				pthread_mutex_lock(&(pool->mutex));
-				printf("\tMUTEX LOCKED\n");
 				pool->thread_count--;
-				printf("\tMUTEX UNLOCKING\n");
 				pthread_mutex_unlock(&(pool->mutex));
 				pthread_mutex_unlock(&(pool->parameter_queue->mutex));				
 				break;

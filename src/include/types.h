@@ -13,14 +13,23 @@
 
 
 typedef enum op{Map,Reduce} Operation;
+typedef enum datatype{LONG, STRING, DOUBLE} DataType;
 /* STRUCT DEFINITIONS */
+
+typedef struct datachunk{
+	int size;
+	DataType data_type;
+	void* data
+} DataChunk;	
+
 /**
 * Node used to store data (eg: function pointers, function args, etc...)
-* NOTE: data is NOT a pointer! data is an OFFSET for the general_shm_ptr pointer! (this is due to mremap compatibility reasons) 
+* NOTE: data_offset is NOT a pointer! data is an OFFSET for the general_shm_ptr pointer! (this is due to mremap compatibility reasons) 
 */
 typedef struct Node{
 	Operation operation;
-	int data;
+	int num_chunks;
+	int data_offset;
 } Node;
 
 /**
@@ -67,7 +76,7 @@ typedef struct thread_pool{
 */
 
 typedef struct key_value{
-	char key[KEY_SIZE];
+	char* key;
 	ValueType value;
 } KeyValue;
 
