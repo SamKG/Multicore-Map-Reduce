@@ -79,10 +79,9 @@ int queue_is_empty(Queue* queue){
 int queue_is_full(Queue* queue){
 	return queue->count == MAX_QUEUE_SIZE - 1;
 }
-Node queue_dequeue(Queue* queue){
+
+Node queue_dequeue_private(Queue* queue){
 	Node return_value;
-	
-	pthread_mutex_lock(&(queue->mutex));
 	if (queue_is_empty(queue)){
 		goto cleanup;
 	}
@@ -91,16 +90,22 @@ Node queue_dequeue(Queue* queue){
 	queue->count--;	
 	
 	cleanup:
-	pthread_mutex_unlock(&(queue->mutex));
-
-	pthread_cond_signal(&(queue->condition_changed));	
 	return return_value;
 }
 
-
-void queue_enqueue(Queue* queue, Node data){
+Node queue_dequeue(Queue* queue){
+	Node return_value;
 	
 	pthread_mutex_lock(&(queue->mutex));
+	
+	return_value = queue_dequeue_private(queue);
+
+	pthread_cond_signal(&(queue->condition_changed));	
+	pthread_mutex_unlock(&(queue->mutex));
+	return return_value;
+}
+
+void queue_enqueue_private(Queue* queue,Node data){
 	if (queue_is_full(queue)){
 		goto cleanup;
 	}
@@ -110,9 +115,15 @@ void queue_enqueue(Queue* queue, Node data){
 	queue->count++;	
 	
 	cleanup:
-	pthread_mutex_unlock(&(queue->mutex));
-	
+	return;
+}
+void queue_enqueue(Queue* queue, Node data){	
+	pthread_mutex_lock(&(queue->mutex));
+
+	queue_enqueue_private(queue,data);
+
 	pthread_cond_signal(&(queue->condition_changed));	
+	pthread_mutex_unlock(&(queue->mutex));
 }
 
 

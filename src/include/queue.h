@@ -1,5 +1,7 @@
 /* This file was automatically generated.  Do not edit! */
 #include <types.h>
+void queue_enqueue_private(Queue* queue,Node data);
+Node queue_dequeue_private(Queue* queue);
 void queue_enqueue(Queue *queue,Node data);
 Node queue_dequeue(Queue *queue);
 int queue_is_full(Queue *queue);
