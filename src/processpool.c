@@ -98,7 +98,7 @@ void start_worker(ProcessPool* pool){
 	while(1){
 		pthread_cond_wait(&(pool->parameter_queue->condition_changed),&(pool->parameter_queue->mutex));
 		Node instruction = queue_dequeue_private(pool->parameter_queue);
-		printf("RECEIVED INSTRUCTION %s %d\n",instruction.data,getpid());				
+		printf("RECEIVED DATA %s %d\n",(char*)(general_shm_ptr+instruction.data),getpid());				
 	}
 		
 }

@@ -67,7 +67,6 @@ Queue* new_queue(char* name){
 }
 
 void destroy_queue(Queue* queue){
-	printf("%p queue \n",queue);
 	shm_unlink(queue->name);
 	munmap(queue,QUEUE_SIZE_T);;
 }

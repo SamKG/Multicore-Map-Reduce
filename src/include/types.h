@@ -7,14 +7,19 @@
 #define MAX_QUEUE_NAME_SIZE 256
 #define MAX_POOL_SIZE 100 
 #define MAX_POOL_NAME_SIZE 256
+#define KEY_SIZE 1024
+#define ValueType long long
 
+
+typedef enum op{Map,Reduce} Operation;
 /* STRUCT DEFINITIONS */
 /**
 * Node used to store data (eg: function pointers, function args, etc...)
 * 
 */
 typedef struct Node{
-        char data[256];
+	Operation operation;
+	int data;
 } Node;
 
 /**
@@ -43,4 +48,14 @@ typedef struct process_pool{
 	int processes[MAX_POOL_SIZE];
         char name[MAX_POOL_NAME_SIZE];
 } ProcessPool;
+
+/**
+* Key-Value pair for usage in being passed around
+*/
+
+typedef struct key_value{
+	char key[KEY_SIZE];
+	ValueType value;
+} KeyValue;
+
 #endif
