@@ -1,4 +1,5 @@
-/* This file was automatically generated.  Do not edit! */
+#include <types.h>
 void start_worker(ProcessPool *pool);
 ProcessPool *new_process_pool(char *name,int number_workers);
-extern const int PROCESS_POOL_SIZE;
+void destroy_process_pool(ProcessPool* pool);
+;extern const int PROCESS_POOL_SIZE;

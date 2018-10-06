@@ -3,24 +3,18 @@
 * Written by: Samyak K. Gupta for CS416-F18
 * Responsibilities: To allow an arbitrary number of worker processes to work on a common task
 */
-
+#include <types.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <queue.h>
 #include <pthread.h>
-#include <sys/types.h>
 #include <sharedmem.h>
-
-#define MAX_POOL_SIZE 100 
-#define MAX_POOL_NAME_SIZE 256
-
-typedef struct process_pool{
-	int process_count;
-	Queue* parameter_queue;
-	pthread_mutex_t mutex;
-	pthread_mutexattr_t mutex_attr;
-	int processes[MAX_POOL_SIZE];
-	char name[MAX_POOL_NAME_SIZE];
-} ProcessPool;
+#include <sys/mman.h>
+#include <processpool.h>
+#include <signal.h>
+#include <errno.h>
 
 const int PROCESS_POOL_SIZE = sizeof(ProcessPool);
 
@@ -33,6 +27,7 @@ const int PROCESS_POOL_SIZE = sizeof(ProcessPool);
 *	
 */
 ProcessPool* new_process_pool(char* name, int number_workers){
+	printf("INITIALIZING POOL\n");
 	char* new_name = append_string(name,"_POOL");
         int exists_flag = 0;
 	int shared_fd = get_shared_fd(new_name,PROCESS_POOL_SIZE,&exists_flag);
@@ -42,6 +37,7 @@ ProcessPool* new_process_pool(char* name, int number_workers){
 	
 	/* If it already exists, we don't need to reinitialize stuff */
 	if (exists_flag){
+		printf("POOL ALREADY EXISTS!\n");
 		goto cleanup;
 	}
 
@@ -55,16 +51,25 @@ ProcessPool* new_process_pool(char* name, int number_workers){
         pthread_mutex_lock(&(pool->mutex));
 
         strcpy(pool->name,new_name);
-	pool->queue = new_queue(name);
+	pool->parameter_queue = new_queue(name);
 
 	while (pool->process_count < number_workers){
+		errno = 0;
 		int pid = fork();
 		if (pid == 0){
-			// Handle child process
+			printf("\tWORKER %d\n",getpid());			// Handle child process
+			start_worker(pool);
+			return NULL;
 		}
 		else{
-			pool->processes[pool->process_count] = pid;
-			pool->process_count++;
+			if(pid == -1){
+				printf("\t\tAN ERROR OCCURED IN CREATION OF PROCESS\n");
+			}
+			else{
+				printf("\tSTARTED WORKER WITH PID %d\n",pid);
+				pool->processes[pool->process_count] = pid;
+				pool->process_count++;
+			}
 		}
 	}
 	
@@ -75,14 +80,24 @@ ProcessPool* new_process_pool(char* name, int number_workers){
 	cleanup:
 
 	free(new_name);
+	printf("DONE INITIALIZING POOL (%d WORKERS CREATED)\n",pool->process_count);
         return pool;
 }
 
-
+void destroy_process_pool(ProcessPool* pool){
+	printf("DESTROYING PROCESS POOL\n");
+	for (int i = 0 ; i < pool->process_count ; i++){
+		kill(pool->processes[i],SIGKILL);
+	}
+	destroy_queue(pool->parameter_queue);
+	shm_unlink(pool->name);;
+	munmap(pool,PROCESS_POOL_SIZE);
+	printf("DONE DESTROYING POOL\n");
+}
 void start_worker(ProcessPool* pool){
 	while(1){
-		pthread_cond_wait(pool->parameter_queue->condition_changed);
-		Node instruction = queue_dequeue(&(pool->parameter_queue));
+		pthread_cond_wait(&(pool->parameter_queue->condition_changed),&(pool->mutex));
+		Node instruction = queue_dequeue(pool->parameter_queue);
 		
 	}
 		

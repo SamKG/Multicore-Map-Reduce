@@ -4,50 +4,18 @@
 * Responsibilities: To allow for a queue data structure to exist cross processes
 */
 
-
-
-
 #include <pthread.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h> 
 #include <unistd.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sharedmem.h>
+#include <types.h>
+#include <queue.h>
 /* CONSTANTS */
-#define MAX_QUEUE_SIZE 100
-#define MAX_QUEUE_NAME_SIZE 256
-
-
-/* STRUCT DEFINITIONS */
-/**
-* Node used to store data (eg: function pointers, function args, etc...)
-* 
-*/
-typedef struct Node{
-	char data[256];
-} Node;
-
-/**
-* Threadsafe queue used to allow shared queue access
-* 
-*/
-typedef struct Queue{
-	pthread_mutex_t mutex;
-	pthread_mutexattr_t mutex_attr;
-	pthread_cond_t condition_changed;
-	pthread_condattr_t condition_attr;
-	int count;
-	int front_pos,rear_pos;
-	Node array[MAX_QUEUE_SIZE];
-	char name[MAX_QUEUE_NAME_SIZE];			
-} Queue;
-
-
-
 const int QUEUE_SIZE_T = sizeof(Queue);
 const char* QUEUE_NAME_MODIFIER = "_QUEUE";
 /**
@@ -86,7 +54,7 @@ Queue* new_queue(char* name){
 	queue->count = 0;
 	queue->front_pos = 0; 
 	queue->rear_pos = MAX_QUEUE_SIZE - 1;
-	
+
 	strcpy(queue->name,new_name);
 	
 	/* Done initializing; We can now return the queue. */
@@ -98,11 +66,17 @@ Queue* new_queue(char* name){
 	return queue;
 }
 
-bool queue_is_empty(Queue* queue){
+void destroy_queue(Queue* queue){
+	printf("%p queue \n",queue);
+	shm_unlink(queue->name);
+	munmap(queue,QUEUE_SIZE_T);;
+}
+
+int queue_is_empty(Queue* queue){
 	return queue->count == 0;
 }
 
-bool queue_is_full(Queue* queue){
+int queue_is_full(Queue* queue){
 	return queue->count == MAX_QUEUE_SIZE - 1;
 }
 Node queue_dequeue(Queue* queue){
@@ -143,17 +117,3 @@ void queue_enqueue(Queue* queue, Node data){
 
 
 
-int main(void){
-	Queue* testqueue = new_queue("testy");
-	
-	Node tmp;
-	tmp.data[0] = 'a';
-	tmp.data[1] = '\0';
-	
-	queue_enqueue(testqueue,tmp);
-	printf("%d %d %d\n",queue_is_empty(testqueue),queue_is_full(testqueue),testqueue->count);
-	Node tmp2 = queue_dequeue(testqueue);
-	printf("%s\n",tmp2.data);
-	return 0;
-
-}	
