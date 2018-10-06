@@ -7,7 +7,7 @@ int main(int argc, char** argv){
 
 }
 
-int map(int offset, int size){
+int map(int offset, int size, int* countreturn){
      int i, j;
      void* ptr = general_shm_ptr;
      int chunksz = sizeof(DataChunk);
@@ -77,6 +77,8 @@ int map(int offset, int size){
                j++;
           }
      }
+
+     *countreturn = count;
 
      return mappedOffset;
 }
