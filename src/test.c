@@ -28,6 +28,7 @@ int main(void){
 	while(planned_ram > freeram){
 		planned_ram/=2;
 	}
+	printf("%d Final allocation of ram\n",planned_ram);
 	// NOTE: We might have to make this shm general pool reaaaaally big, cause resize doesn't work for some reason :/
 	shm_init_general(planned_ram);
 	ThreadPool* pool = new_thread_pool("TEST3",1);
