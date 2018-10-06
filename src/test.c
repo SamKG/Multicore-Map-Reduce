@@ -8,6 +8,8 @@
 #include <types.h>
 #include <sharedmem.h>
 #include <sys/mman.h>
+#include <sys/sysinfo.h>
+
 int main(void){
 	printf("START\n");
 	shm_unlink("TEST3");
@@ -16,10 +18,20 @@ int main(void){
 	shm_unlink("GENERAL_SHM");	
 	shm_unlink("TEST3_TPOOL");
 
+	struct sysinfo inf;
+	sysinfo(&inf);
+	printf("%lu Free memory on system\n",inf.freeram);
+	
+	unsigned long freeram = inf.freeram;
+	int planned_ram = 1<<30;
+	printf("%d Planned allocation of ram\n",planned_ram);
+	while(planned_ram > freeram){
+		planned_ram/=2;
+	}
 	// NOTE: We might have to make this shm general pool reaaaaally big, cause resize doesn't work for some reason :/
-	shm_init_general(1<<30);	
-	ThreadPool* pool = new_thread_pool("TEST3",10);
-	for (int i = 0 ; i < 500; i++){
+	shm_init_general(planned_ram);
+	ThreadPool* pool = new_thread_pool("TEST3",1);
+	for (int i = 0 ; i < 10; i++){
 		Node tmp;
 		tmp.data = shm_get_general(256);
 		sprintf((char*)(general_shm_ptr+tmp.data),"test %d",i);
