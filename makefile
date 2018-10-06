@@ -4,7 +4,7 @@ INCDIR=$(SRCDIR)/include
 ODIR=$(SRCDIR)/obj
 
 CC=gcc
-CFLAGS=-I $(INCDIR) -Wfatal-errors -g
+CFLAGS=-I $(INCDIR) -Wfatal-errors -Wall -g
 DEPS=./src 
 
 LIBS=-lpthread -lrt

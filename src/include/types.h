@@ -15,7 +15,7 @@ typedef enum op{Map,Reduce} Operation;
 /* STRUCT DEFINITIONS */
 /**
 * Node used to store data (eg: function pointers, function args, etc...)
-* 
+* NOTE: data is NOT a pointer! data is an OFFSET for the general_shm_ptr pointer! (this is due to mremap compatibility reasons) 
 */
 typedef struct Node{
 	Operation operation;

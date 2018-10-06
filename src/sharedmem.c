@@ -3,7 +3,7 @@
 * Written by: Samyak K. Gupta for CS416-F18
 * Responsibilities: Handling all shm_open calls
 */
-
+#define _GNU_SOURCE
 #include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -83,7 +83,11 @@ void shm_init_general(int size){
 void shm_resize_general(int size){
 	printf("SHM_GENERAL: RESIZE SPACE TO %d\n",general_shm_size + (size*10));
 	ftruncate(general_shm_fd,general_shm_size + (size*10));
-	general_shm_ptr = mremap(general_shm_ptr, general_shm_size, general_shm_size + (size*10),0,NULL);
+	void* new_ptr = mremap(general_shm_ptr,general_shm_size,general_shm_size + (size*10),MREMAP_MAYMOVE,0);
+	while(new_ptr == MAP_FAILED){
+		new_ptr = mremap(general_shm_ptr,general_shm_size,general_shm_size + (size*10),MREMAP_MAYMOVE,0);
+	}
+	general_shm_ptr = new_ptr;
 	general_shm_size += (size*10);
 }
 
