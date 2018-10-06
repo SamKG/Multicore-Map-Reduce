@@ -87,27 +87,26 @@ void destroy_thread_pool(ThreadPool* pool){
 	printf("DONE DESTROYING POOL\n");
 }
 void* start_thread_worker(void* pool_ptr){
-	ThreadPool* pool = pool_ptr;
+	ThreadPool* pool = (ThreadPool*) pool_ptr;
 	struct timespec tm;
 	pthread_t tid = pthread_self();
 	while(1){
 		tm.tv_sec = time(NULL) + 1;
-		int er = pthread_cond_timedwait(&(pool->parameter_queue->condition_changed),&(pool->parameter_queue->mutex),&tm);
+		pthread_mutex_lock(&(pool->mutex));
+		int er = pthread_cond_timedwait(&(pool->parameter_queue->condition_changed),&(pool->mutex),&tm);
 		if (er == ETIMEDOUT){ 
 			//printf("THREAD TIMEOUT %d\n",tid);
 			if (pool->running == 0){
-				pthread_mutex_lock(&(pool->mutex));
-				pool->thread_count--;
-				pthread_mutex_unlock(&(pool->mutex));
-				pthread_mutex_unlock(&(pool->parameter_queue->mutex));				
+				pthread_mutex_unlock(&(pool->mutex));				
 				break;
 			}
+			pthread_mutex_unlock(&(pool->mutex));				
 			continue; 
 		}
 		//printf("THREAD TICK %d\n",tid);
-		Node instruction = queue_dequeue_private(pool->parameter_queue);
-		printf("RECEIVED DATA %s %d\n",(char*)(general_shm_ptr+instruction.data),tid);
-		pthread_mutex_unlock(&(pool->parameter_queue->mutex));				
+		Node instruction = queue_dequeue(pool->parameter_queue);
+		printf("RECEIVED DATA  %d\n",tid);
+		pthread_mutex_unlock(&(pool->mutex));				
 	}
 	
 	pthread_exit(NULL);

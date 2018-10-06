@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <pthread.h>
 
-#define MAX_QUEUE_SIZE 10000
+#define MAX_QUEUE_SIZE 100000
 #define MAX_QUEUE_NAME_SIZE 256
 #define MAX_POOL_SIZE 100 
 #define MAX_POOL_NAME_SIZE 256

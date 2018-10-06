@@ -92,8 +92,8 @@ void shm_resize_general(int size){
 }
 
 void shm_destroy_general(){
-	shm_unlink("GENERAL_SHM");
 	munmap(general_shm_ptr,general_shm_size);
+	shm_unlink("GENERAL_SHM");
 }
 /**
 * Lol this is basically a lazy malloc function, written to use shared memory

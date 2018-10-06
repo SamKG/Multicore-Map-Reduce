@@ -15,8 +15,9 @@
 #include <sharedmem.h>
 #include <sys/mman.h>
 #include <sys/sysinfo.h>
-
+#include <filehandler.h>
 #define BUFFER_SIZE 1024
+#define CHUNK_SIZE 10
 
 typedef enum impl{THREAD,PROCESS} Implementation;
 int main(int argc, char** argv){
@@ -48,7 +49,8 @@ int main(int argc, char** argv){
         shm_unlink("MAPRED_REDUCE_TPOOL");
         
 	shm_unlink("GENERAL_SHM");
-	
+
+	shm_init_general(1<<30);	
 	//Declare all pools
 	ProcessPool* map_pool_p = NULL;
 	ThreadPool* map_pool_t = NULL;
@@ -73,19 +75,40 @@ int main(int argc, char** argv){
 	}
 	
 	//1) Parse the input file
+	int num_chunks = 0;
+	int datachunk_offset = tokenize_file(input_file,&num_chunks);
 
-	//2) Chunk the parsed info
+	//2) Chunk the parsed info & pass to map workers
 	
+	for (int i = 0 ; i < num_chunks/CHUNK_SIZE ; i++){
+		Node new_instr;
+		new_instr.operation = Map;
+		new_instr.num_chunks = (i != (num_chunks/CHUNK_SIZE)-1)?CHUNK_SIZE:num_chunks%CHUNK_SIZE;	
+		new_instr.data_offset = datachunk_offset + (i*sizeof(DataChunk)*CHUNK_SIZE);
+		switch(impl_type){
+			case THREAD:
+				queue_enqueue(map_pool_t->parameter_queue, new_instr);
+				break;
+
+			case PROCESS:
+				queue_enqueue(map_pool_p->parameter_queue, new_instr);
+				break;
+			default:
+				printf("ERROR: NO IMPL SPECIFIED\n");
+				return 0;
+		}
+	}
+
+
 	//3) Pass chunks to map pool
-	
+
 	//4) Combine data passed back from map pool (ie: sort by key)
 
 	//5) Pass all of one key to reduce pool
 
 	//6) Retrieve output data, and output to file
 
-	
-	cleanup:
+cleanup:
 	//define cleanup stuff here
 	if (map_pool_p != NULL){
 		destroy_process_pool(map_pool_p);

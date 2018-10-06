@@ -97,9 +97,10 @@ void destroy_process_pool(ProcessPool* pool){
 }
 void start_worker(ProcessPool* pool){
 	while(1){
-		pthread_cond_wait(&(pool->parameter_queue->condition_changed),&(pool->parameter_queue->mutex));
-		Node instruction = queue_dequeue_private(pool->parameter_queue);
-		printf("RECEIVED DATA %s %d\n",(char*)(general_shm_ptr+instruction.data),getpid());				
-	}
-		
+                pthread_mutex_lock(&(pool->mutex));
+                int er = pthread_cond_wait(&(pool->parameter_queue->condition_changed),&(pool->mutex));
+                Node instruction = queue_dequeue(pool->parameter_queue);
+                printf("RECEIVED DATA  %d\n",getpid());
+                pthread_mutex_unlock(&(pool->mutex));
+        }
 }
