@@ -1,3 +1,7 @@
+/*
+     Daniel Pattathil - CS 416
+*/
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -33,7 +37,7 @@ int map(int offset, int size, int* countreturn){
                prev_chunk = keyvalues[j-1].key_offset + ptr;
 
                //sort these tokens in order
-               if(strcmp(next_chunk->data, prev_chunk->data) > 0)
+               if(strcmp((char*)next_chunk->data, (char*)prev_chunk->data) > 0)
                {
                     break;
                }
@@ -45,6 +49,7 @@ int map(int offset, int size, int* countreturn){
           }
      }
 
+     //this compresses the array if there are same values within this chunk
      int index;
      int count = 0;
      for(i = 0; i < size; i++){
@@ -54,7 +59,7 @@ int map(int offset, int size, int* countreturn){
           j = i+1;
           while(j < size){
                next_chunk = keyvalues[j].key_offset + ptr;
-               if(strcmp(prev_chunk->data, prev_chunk->data) == 0)
+               if(strcmp((char*)prev_chunk->data, (char*)prev_chunk->data) == 0)
                {
                     keyvalues[index].value+=1;
                     keyvalues[j] == NULL;
@@ -67,8 +72,7 @@ int map(int offset, int size, int* countreturn){
 
      //This is the offset for the resulting array of mappped key_value pairs
      int mappedOffset = shm_get_general(count * keyvalsz);
-     for(i = 0, j = 0; i < size; i++)
-     {
+     for(i = 0, j = 0; i < size; i++){
           if(keyvalues[i] == NULL){
                continue;
           }
@@ -81,4 +85,31 @@ int map(int offset, int size, int* countreturn){
      *countreturn = count;
 
      return mappedOffset;
+}
+
+void reduce(int start, int end, int count, int insert_pos){
+
+     void* ptr = general_shm_ptr;
+     int keyvalsz = sizeof(key_value);
+     key_value* temp;
+     int total = 0;
+
+     for(i = 0; i < count; i++){
+          temp = *(ptr + start + (i * keyvalsz));
+          total += temp->value;
+     }
+
+     temp->value = total;
+     *(ptr+insert_pos) = temp;
+
+     DataChunk* temp_d;
+     if(end == 1){
+          for(i = 0; i < count; i++){
+               temp = *(ptr + start + (i * keyvalsz));
+               temp_d = ptr + temp->key_offset;
+               printf("%s\t%d\n", (char*) ptr + temp_d->data, temp->value)
+          }
+     }
+
+     return;
 }
