@@ -81,11 +81,9 @@ int map(int offset, int size, int* countreturn){
                continue;
           }
           else{
-               // *(ptr + mappedOffset + (j * keyvalsz)) = keyvalues[i];
-	       // do i have to actually copy? 
-	       // use a lock?
-               ((key_value)(ptr + mappedOffset + (j*keyvalsz)))->key_offset = keyvalues[i]->key_offset;
-	       ((key_value) (ptr + mappedOffset + (j*keyvalsz)))->value = keyvalues[i]->value;
+                *(ptr + mappedOffset + (j * keyvalsz)) = keyvalues[i];
+               //((key_value)(ptr + mappedOffset + (j*keyvalsz)))->key_offset = keyvalues[i]->key_offset;
+	      // ((key_value)(ptr + mappedOffset + (j*keyvalsz)))->value = keyvalues[i]->value;
 		j++;
           }
      }
