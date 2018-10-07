@@ -1,4 +1,4 @@
-/*
+/*:\
      Daniel Pattathil - CS 416
 */
 
@@ -22,29 +22,33 @@ int map(int offset, int size, int* countreturn){
      //This is creating an array of KeyValue pairs with offset values to chunks
      for(i = 0; i < size; i++)
      {
-          keyvalues[i].key_offset = (offset + (i * chunksz));
-          keyvalues[i].value = 1;
+	keyvalues[i].key_offset = ((DataChunk) offset+ (i*chunksz))->data;
+        //keyvalues[i].key_offset = (offset + (i * chunksz));
+        keyvalues[i].value = 1;
      }
 
      //This is to sort the array of KeyValue pairs
-     DataChunk* next_chunk;
-     DataChunk* prev_chunk;
+     //DataChunk* next_chunk;
+     //DataChunk* prev_chunk;
+
+     char *next_chunk;
+     char *prev_chunk;
 
      for (i = 1 ; i < size; i++) {
           j = i;
           while (j > 0){
-               next_chunk = keyvalues[j].key_offset + ptr;
-               prev_chunk = keyvalues[j-1].key_offset + ptr;
+               next_chunk = (char *)keyvalues[j].key_offset + ptr;
+               prev_chunk = (char *)keyvalues[j-1].key_offset + ptr;
 
                //sort these tokens in order
-               if(strcmp((char*)next_chunk->data, (char*)prev_chunk->data) > 0)
+               if(strcmp(next_chunk, prev_chunk) > 0)
                {
                     break;
                }
 
                temp_kv = keyvalues[j];
                keyvalues[j] = keyvalues[j-1];
-               keyvalues[j] = temp_kv;
+               keyvalues[j-1] = temp_kv;
                j--;
           }
      }
@@ -55,11 +59,11 @@ int map(int offset, int size, int* countreturn){
      for(i = 0; i < size; i++){
           index = i;
           count++;
-          prev_chunk = keyvalues[index].key_offset + ptr;
+          prev_chunk = (char *)keyvalues[index].key_offset + ptr;
           j = i+1;
           while(j < size){
-               next_chunk = keyvalues[j].key_offset + ptr;
-               if(strcmp((char*)prev_chunk->data, (char*)prev_chunk->data) == 0)
+               next_chunk = (char *)keyvalues[j].key_offset + ptr;
+               if(strcmp(prev_chunk, next_chunk) == 0)
                {
                     keyvalues[index].value+=1;
                     keyvalues[j] == NULL;
@@ -77,14 +81,23 @@ int map(int offset, int size, int* countreturn){
                continue;
           }
           else{
-               *(ptr + mappedOffset + (j * keyvalsz)) = keyvalues[i];
-               j++;
+               // *(ptr + mappedOffset + (j * keyvalsz)) = keyvalues[i];
+	       // do i have to actually copy? 
+	       // use a lock?
+               ((key_value)(ptr + mappedOffset + (j*keyvalsz)))->key_offset = keyvalues[i]->key_offset;
+	       ((key_value) (ptr + mappedOffset + (j*keyvalsz)))->value = keyvalues[i]->value;
+		j++;
           }
      }
-
+     int nodeOffset = shm_get_general(Node);
+     (Node) *(ptr + nodeOffset)->operation = Map;
+     (Node) *(ptr + nodeOffset)->num_chunks = count;
+     (Node) *(ptr + nodeOffset)->data_offset = mappedOffset;
+	
      *countreturn = count;
 
-     return mappedOffset;
+     return nodeOffset;
+
 }
 
 void reduce(int start, int end, int count, int insert_pos){
