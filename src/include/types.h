@@ -12,11 +12,11 @@
 #define KEY_SIZE 1024
 #define ValueType long long
 
-
+typedef enum impl{WORDCOUNT,SORT,USER} App;
 typedef enum op{Map,Reduce,Error} Operation;
 typedef enum datatype{LONG, STRING, DOUBLE} DataType;
 /* STRUCT DEFINITIONS */
-
+extern App app_type;
 typedef struct datachunk{
 	int size;
 	DataType data_type;

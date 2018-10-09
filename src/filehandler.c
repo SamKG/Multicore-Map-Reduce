@@ -14,6 +14,7 @@
 #include <sys/mman.h>
 #include <sys/sysinfo.h>
 #include <filehandler.h>
+#include <mapred_def.h>
 
 #define BUFFER_SIZE 1024
 int tokenize_file(FILE* file,int* num_chunk_count){
@@ -40,15 +41,15 @@ int tokenize_file(FILE* file,int* num_chunk_count){
 				}
 				//insert token into a shm_general region
 				int token_len = strlen(last_token)+1;
-				printf("ALLOC SPACE FOR STR %s (len: %d)\n",last_token,token_len);
+				//printf("ALLOC SPACE FOR STR %s (len: %d)\n",last_token,token_len);
 				int str_offset = shm_get_general(token_len);
 				strcpy((char*) (general_shm_ptr + str_offset),last_token);
 				
 				//make a datachunk to store
 				arr[num_chunks].size = token_len;
-				arr[num_chunks].data_type = STRING;
+				arr[num_chunks].data_type = (app_type == SORT)?LONG:STRING;
 				arr[num_chunks].data = str_offset;	
-				printf("\tSTR OFFSET STRING %s\n",(char*)(general_shm_ptr + str_offset));
+				//printf("\tSTR OFFSET STRING %s\n",(char*)(general_shm_ptr + str_offset));
 				num_chunks++;
 
 				last_token = strtok( NULL, delimiters );
@@ -69,4 +70,11 @@ int tokenize_file(FILE* file,int* num_chunk_count){
 	}
 
 	return -1;
+}
+void output_file(FILE* file,int offset, int count){
+	for (int i = 0 ; i < count ; i++){
+                DataChunk* dc = (DataChunk*) (general_shm_ptr + offset + i*sizeof(DataChunk));
+
+                fprintf(file,"%s\n",(char*)(general_shm_ptr +  dc->data));
+        }
 }

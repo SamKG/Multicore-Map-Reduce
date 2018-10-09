@@ -26,7 +26,23 @@ int gt(DataChunk a, DataChunk b){
 	}
 	return 0;
 }
-
+int eq(DataChunk a, DataChunk b){
+	if (a.data_type == b.data_type){
+		char* da =(char*)( general_shm_ptr + a.data);
+		char* db = (char*) ( general_shm_ptr + b.data);
+		switch (a.data_type){
+			case LONG:;
+				long la =strtol(da,NULL,10);
+				long lb = strtol(db,NULL,10);
+				return la == lb;
+				break;	
+			case STRING:;
+				return (strcmp(da,db) == 0); 
+				break;
+		}
+	}
+	return 0;
+}
 void sort(int offset, int totalKeys){
 	KeyValue* arr = (KeyValue*)(general_shm_ptr + offset);
 	int i = 1;

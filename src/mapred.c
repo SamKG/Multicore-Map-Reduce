@@ -4,6 +4,7 @@
  * Responsibilities: To set up a basic main() to enable unique map() reduce()
  */
 
+#include <types.h>
 #include <queue.h>
 #include <processpool.h>
 #include <threadpool.h>
@@ -11,7 +12,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
-#include <types.h>
 #include <sharedmem.h>
 #include <sys/mman.h>
 #include <sys/sysinfo.h>
@@ -20,9 +20,11 @@
 #include <queue.h>
 #include <helper.h>
 #include <sys/sysinfo.h>
+#include <mapred_def.h>
 #define BUFFER_SIZE 1024
 #define CHUNK_SIZE (num_chunks/num_maps)
 
+App app_type = WORDCOUNT;
 typedef enum impl_type{THREAD,PROCESS} Implementation;
 int main(int argc, char** argv){
 
@@ -32,7 +34,7 @@ int main(int argc, char** argv){
 	int num_maps = atoi(argv[6]);
 	int num_reduces = atoi(argv[8]);
 	FILE* input_file = fopen(argv[10], "r" );
-	FILE* output_file = fopen(argv[12],"rw");
+	FILE* outfile= fopen(argv[12],"w");
 	
 	
 	Implementation impl_type = THREAD;	
@@ -40,6 +42,12 @@ int main(int argc, char** argv){
 	if (strcmp(impl,"procs") == 0){
 		impl_type = PROCESS;	 
 	}
+
+	app_type = WORDCOUNT;
+	if (strcmp(app,"sort") == 0){
+		app_type = SORT;
+	}
+
 	//Setup pools
 	
 	//unlink existing pools	
@@ -126,7 +134,7 @@ int main(int argc, char** argv){
 		}
 		new_instr.data_offset = datachunk_offset + (i*sizeof(DataChunk)*CHUNK_SIZE);
 		DataChunk* chnk = (DataChunk*)(general_shm_ptr + datachunk_offset + (i*sizeof(DataChunk)*CHUNK_SIZE));
-		printf("\t\tCHUNK %d (numchunks: %d)\n",i,new_instr.num_chunks);
+		//printf("\t\tCHUNK %d (numchunks: %d)\n",i,new_instr.num_chunks);
 		switch(impl_type){
 			case THREAD:
 				queue_enqueue(map_pool_t->parameter_queue, new_instr);
@@ -241,7 +249,7 @@ int main(int argc, char** argv){
 				break;
 			}
 		}	
-		printf("INSERT REDUCE OP FOR KEY %s count %lu\n",curr_key,curr_instr.num_chunks);
+		//printf("INSERT REDUCE OP FOR KEY %s count %lu\n",curr_key,curr_instr.num_chunks);
 		switch(impl_type){
 			case THREAD:
 				queue_enqueue(reduce_pool_t->parameter_queue, curr_instr);
@@ -292,12 +300,7 @@ int main(int argc, char** argv){
 	}
 	exitreducewait:
 	printf("DONE WAITING FOR REDUCE\n");
-	
-	for (int i = 0 ; i < count ; i++){
-		DataChunk* dc = (DataChunk*) (general_shm_ptr + reduce_array_offset + i*sizeof(DataChunk));
-		
-		printf("%s\n",(char*)(general_shm_ptr +  dc->data));		
-	}	
+	output_file(outfile,reduce_array_offset,count);	
 cleanup:
 	//define cleanup stuff here
 	if (map_pool_p != NULL){

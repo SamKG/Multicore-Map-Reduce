@@ -16,7 +16,7 @@ Responsibilities: To allow an arbitrary number of worker threads to work on a co
 #include <signal.h>
 #include <errno.h>
 #include <time.h>
-#include <wordcount.h>
+#include <mapred_def.h>
 #include <semaphore.h>
 
 const int THREAD_POOL_SIZE = sizeof(ThreadPool);
@@ -94,9 +94,9 @@ void* start_thread_worker(void* pool_ptr){
                 pthread_mutex_unlock(&(pool->mutex));
 		Node instruction = queue_dequeue(pool->parameter_queue);
 		switch(instruction.operation){
-			case Map:
-				printf("RECEIVED MAP INSTRUCTION (%d remain in queue)\n\t\t",pool->parameter_queue->count);
-				printf("\tINSTRUCTION DATA: num_chunks: %d\n",instruction.num_chunks);
+			case Map:;
+				//printf("RECEIVED MAP INSTRUCTION (%d remain in queue)\n\t\t",pool->parameter_queue->count);
+				//printf("\tINSTRUCTION DATA: num_chunks: %d\n",instruction.num_chunks);
 				int num_keys = 0;
 				KeyValue* vals = map(instruction.data_offset,instruction.num_chunks,&num_keys);
 				//insert into final return array
@@ -105,12 +105,12 @@ void* start_thread_worker(void* pool_ptr){
 				for (int i = 0 ; i < num_keys ; i++){
 					ret_arr[i] = vals[i];
 				}
-				printf("FINISH WITH INSTRUCTION\n");
+				//printf("FINISH WITH INSTRUCTION\n");
 				free(vals);
 				break;
-			case Reduce:
-				printf("RECEIVED REDUCE INSTRUCTION\n");
-				printf("\tINSTRUCTION DATA: num_chunks: %d\n",instruction.num_chunks);
+			case Reduce:;
+				//printf("RECEIVED REDUCE INSTRUCTION\n");
+				//printf("\tINSTRUCTION DATA: num_chunks: %d\n",instruction.num_chunks);
 				char* final_str = reduce(instruction.data_offset,instruction.num_chunks);
 				int return_off = instruction.meta;
 				int str_off = shm_get_general(strlen(final_str)+1);
@@ -120,7 +120,7 @@ void* start_thread_worker(void* pool_ptr){
 				dc->data = str_off;
 				free(final_str);
 				break;
-			case Error:
+			case Error:;
 				//printf("RECEIVED ERROR: EMPTY NODE\n");
 				break;
 		}
