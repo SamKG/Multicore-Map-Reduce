@@ -96,18 +96,15 @@ void* start_thread_worker(void* pool_ptr){
 		tm.tv_sec = time(NULL) + 1;
 		pthread_mutex_lock(&(pool->mutex));
 		int er = pthread_cond_timedwait(&(pool->parameter_queue->condition_changed),&(pool->mutex),&tm);
-		pool->num_running_workers++;
-		if (er == ETIMEDOUT){ 
-			//printf("THREAD TIMEOUT %d\n",tid);
+		if (er == ETIMEDOUT || pool->running == 0){ 
 			if (pool->running == 0){
-				pool->num_running_workers--;
 				pthread_mutex_unlock(&(pool->mutex));				
 				break;
 			}
-			pool->num_running_workers--;
 			pthread_mutex_unlock(&(pool->mutex));				
 			continue; 
 		}
+		pool->num_running_workers++;
 		//printf("THREAD TICK %d\n",tid);
 		Node instruction = queue_dequeue(pool->parameter_queue);
 		pthread_mutex_unlock(&(pool->mutex));				
@@ -130,6 +127,15 @@ void* start_thread_worker(void* pool_ptr){
 				break;
 			case Reduce:
 				printf("RECEIVED REDUCE INSTRUCTION\n");
+				printf("\tINSTRUCTION DATA: num_chunks: %d\n",instruction.num_chunks);
+				char* final_str = reduce(instruction.data_offset,instruction.num_chunks);
+				int return_off = instruction.meta;
+				int str_off = shm_get_general(strlen(final_str)+1);
+				char* buff = (char*) (general_shm_ptr + str_off);
+				strcpy(buff,final_str);	
+				DataChunk* dc = (DataChunk*) (general_shm_ptr + return_off);
+				dc->data = str_off;
+				free(final_str);
 				break;
 			case Error:
 				//printf("RECEIVED ERROR: EMPTY NODE\n");

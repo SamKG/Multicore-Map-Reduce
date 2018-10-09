@@ -131,11 +131,12 @@ int main(int argc, char** argv){
 	//	iv) Wait for the running threads to finish up with maps
 	while(1){
 		printf("WAITING FOR MAPS TO FINISH\n");
-		pthread_mutex_lock(&(map_pool_t->parameter_queue->mutex));
 		switch(impl_type){
 			case THREAD:
+				pthread_mutex_lock(&(map_pool_t->parameter_queue->mutex));
 				printf("\tQUEUE HAS %d ELEMENTS\n",map_pool_t->parameter_queue->count);
 				if (queue_is_empty(map_pool_t->parameter_queue)){
+					map_pool_t->running = 0;
 					printf("\tPOOL HAS %d WORKERS\n",map_pool_t->num_running_workers);
 					if (map_pool_t->num_running_workers == 0){
 						printf("DONE WAITING!\n");
@@ -143,30 +144,106 @@ int main(int argc, char** argv){
 						goto exitmapwait;
 					}
 				}
+				pthread_mutex_unlock(&(map_pool_t->parameter_queue->mutex));
 				break;
 			case PROCESS:
+				pthread_mutex_lock(&(map_pool_p->parameter_queue->mutex));
+				printf("\tQUEUE HAS %d ELEMENTS\n",map_pool_p->parameter_queue->count);
+				if (queue_is_empty(map_pool_p->parameter_queue)){
+					printf("\tPOOL HAS %d WORKERS\n",map_pool_p->num_running_workers);
+					if (map_pool_p->num_running_workers == 0){
+						printf("DONE WAITING!\n");
+						pthread_mutex_unlock(&(map_pool_p->parameter_queue->mutex));
+						goto exitmapwait;
+					}
+				}
+				pthread_cond_signal(&(map_pool_p->parameter_queue->condition_changed));
+				pthread_mutex_unlock(&(map_pool_p->parameter_queue->mutex));
 				break;
 		}
-		pthread_cond_signal(&(map_pool_t->parameter_queue->condition_changed));
-		pthread_mutex_unlock(&(map_pool_t->parameter_queue->mutex));
 		sleep(1);
 	}
 	exitmapwait:
 	printf("RECEIVED MAP DATA!\n");
 	//Shuffle data in between
-	sort(map_pool_t->return_array_offset,map_pool_t->return_array_count);	
 	switch(impl_type){
 		case THREAD:
-			printf("NUM TOTAL RETURN %d\n",map_pool_t->return_array_count);
-			for (int i = 0 ; i < map_pool_t->return_array_count ; i++){
-				KeyValue* k = (KeyValue*) (general_shm_ptr + map_pool_t->return_array_offset + (i * sizeof(KeyValue)));
-				DataChunk* d = (DataChunk*) (general_shm_ptr + k->key_offset);
-				printf("\t<%s,%d>\n",(char*) (general_shm_ptr + d->data),k->value);
-			}
+			sort(map_pool_t->return_array_offset,map_pool_t->return_array_count);	
 			break;
+		case PROCESS:
+			sort(map_pool_p->return_array_offset,map_pool_p->return_array_count);	
+			break;	
 	}
+	
+
+
 	//3) Pass all of one key to reduce pool
 
+	int reduce_array_size = (num_chunks) + 1;
+	int reduce_array_offset = shm_get_general(reduce_array_size * sizeof(KeyValue));
+	
+	int num_input_pairs = 0;
+	int map_return_offset = 0;	
+	//	ii) Set offsets of return in the pools;
+	switch(impl_type){
+		case THREAD:
+			num_input_pairs = map_pool_t->return_array_count;
+			map_return_offset = map_pool_t->return_array_offset;
+			reduce_pool_t->return_array_offset = reduce_array_offset;
+			reduce_pool_t->return_array_count = 0;
+			break;
+		case PROCESS:
+			num_input_pairs = map_pool_p->return_array_count;
+			map_return_offset = map_pool_p->return_array_offset;
+			reduce_pool_p->return_array_offset = reduce_array_offset;
+			reduce_pool_p->return_array_count = 0;
+			break;
+	}
+	printf("\tSENDING INSTRUCTIONS TO REDUCE POOL QUEUE\n");	
+	//	iii) Send the instructions to the pool queue
+	
+	int count = 0;
+	for (int i = 0 ; i < num_input_pairs; i++){
+		Node curr_instr;
+		curr_instr.operation = Reduce;
+		curr_instr.num_chunks = 1;
+		curr_instr.data_offset = map_return_offset + (i*sizeof(KeyValue));
+		curr_instr.meta = count;
+		KeyValue* curr_kv = (KeyValue*) (general_shm_ptr + curr_instr.data_offset);
+		DataChunk* curr_dc = (DataChunk*) (general_shm_ptr + curr_kv->key_offset);
+		char* curr_key = (char*) (general_shm_ptr + curr_dc->data);
+	
+		for (int j = i+1 ; j <= num_input_pairs ; j++){
+			if(j==num_input_pairs){
+				i = j;
+				break;
+			}
+			KeyValue* next_kv = (KeyValue*) (general_shm_ptr + map_return_offset + (j*sizeof(KeyValue)));
+			DataChunk* next_dc = (DataChunk*) (general_shm_ptr + next_kv->key_offset);
+			char* next_key = (char*) (general_shm_ptr + next_dc->data);
+			if(strcmp(next_key,curr_key) == 0){
+				curr_instr.num_chunks++;
+			}
+			else{
+				i = j-1;
+				break;
+			}
+		}	
+		printf("INSERT REDUCE OP FOR KEY %s count %lu\n",curr_key,curr_instr.num_chunks);
+		switch(impl_type){
+			case THREAD:
+				queue_enqueue(reduce_pool_t->parameter_queue, curr_instr);
+				break;
+
+			case PROCESS:
+				queue_enqueue(reduce_pool_p->parameter_queue, curr_instr);
+				break;
+			default:
+				printf("ERROR: NO IMPL SPECIFIED\n");
+				return 0;
+		}
+	}
+	
 cleanup:
 	//define cleanup stuff here
 	if (map_pool_p != NULL){

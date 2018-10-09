@@ -84,29 +84,21 @@ KeyValue* map(int offset, int size, int* countreturn){
 	return return_arr;
 }
 
-void reduce(int start, int end, int count, int insert_pos){
-
-	void* ptr = general_shm_ptr;
-	int keyvalsz = sizeof(KeyValue);
-	KeyValue* temp;
-	int total = 0;
-
-	for(int i = 0; i < count; i++){
-		temp = (KeyValue*) (ptr + start + (i * keyvalsz));
-		total += temp->value;
-	}
-
-	temp->value = total;
-	*(KeyValue*)(ptr+insert_pos) = *temp;
-
-	DataChunk* temp_d;
-	if(end == 1){
-		for(int i = 0; i < count; i++){
-			temp = (KeyValue*)(ptr + start + (i * keyvalsz));
-			temp_d = ptr + temp->key_offset;
-			printf("%s\t%d\n", (char*) ptr + temp_d->data, temp->value);
+char* reduce(int start, int count){
+	printf("\tSTART REDUCE\n");
+	long val = 0;
+	char* key = NULL;
+	for (int i = 0 ; i < count ; i++){
+		KeyValue* kv = (KeyValue*) (general_shm_ptr + start + (i*sizeof(KeyValue)));
+		val+=kv->value;
+		if (key == NULL){
+			DataChunk* k = (DataChunk*) (general_shm_ptr + kv->key_offset);
+			key = (char*) (general_shm_ptr+k->data);
 		}
-	}
-
-	return;
+	}	
+	
+	char* final_str = (char*) malloc(strlen(key) + 40);
+	sprintf(final_str,"%s\t%lu",key,val);	
+	printf("\tFINAL REDUCE STRING: %s\n",final_str);
+	return final_str;
 }

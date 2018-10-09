@@ -30,6 +30,7 @@ typedef struct Node{
 	Operation operation;
 	int num_chunks;
 	int data_offset;
+	int meta;
 } Node;
 
 /**
