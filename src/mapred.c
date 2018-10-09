@@ -180,7 +180,7 @@ int main(int argc, char** argv){
 	//3) Pass all of one key to reduce pool
 
 	int reduce_array_size = (num_chunks) + 1;
-	int reduce_array_offset = shm_get_general(reduce_array_size * sizeof(KeyValue));
+	int reduce_array_offset = shm_get_general(reduce_array_size * sizeof(DataChunk));
 	
 	int num_input_pairs = 0;
 	int map_return_offset = 0;	
@@ -208,7 +208,8 @@ int main(int argc, char** argv){
 		curr_instr.operation = Reduce;
 		curr_instr.num_chunks = 1;
 		curr_instr.data_offset = map_return_offset + (i*sizeof(KeyValue));
-		curr_instr.meta = count;
+		curr_instr.meta = reduce_array_offset + (count*sizeof(DataChunk));
+		count+=1;
 		KeyValue* curr_kv = (KeyValue*) (general_shm_ptr + curr_instr.data_offset);
 		DataChunk* curr_dc = (DataChunk*) (general_shm_ptr + curr_kv->key_offset);
 		char* curr_key = (char*) (general_shm_ptr + curr_dc->data);
@@ -244,6 +245,50 @@ int main(int argc, char** argv){
 		}
 	}
 	
+	//now we wait for return from reduce pool
+	
+	while(1){
+		printf("WAITING FOR REDUCES TO FINISH\n");
+		switch(impl_type){
+			case THREAD:
+				pthread_mutex_lock(&(reduce_pool_t->parameter_queue->mutex));
+				printf("\tQUEUE HAS %d ELEMENTS\n",reduce_pool_t->parameter_queue->count);
+				if (queue_is_empty(reduce_pool_t->parameter_queue)){
+					reduce_pool_t->running = 0;
+					printf("\tPOOL HAS %d WORKERS\n",reduce_pool_t->num_running_workers);
+					if (reduce_pool_t->num_running_workers == 0){
+						printf("DONE WAITING!\n");
+						pthread_mutex_unlock(&(reduce_pool_t->parameter_queue->mutex));
+						goto exitreducewait;
+					}
+				}
+				pthread_mutex_unlock(&(reduce_pool_t->parameter_queue->mutex));
+				break;
+			case PROCESS:
+				pthread_mutex_lock(&(reduce_pool_p->parameter_queue->mutex));
+				printf("\tQUEUE HAS %d ELEMENTS\n",reduce_pool_p->parameter_queue->count);
+				if (queue_is_empty(reduce_pool_p->parameter_queue)){
+					printf("\tPOOL HAS %d WORKERS\n",reduce_pool_p->num_running_workers);
+					if (reduce_pool_p->num_running_workers == 0){
+						printf("DONE WAITING!\n");
+						pthread_mutex_unlock(&(reduce_pool_p->parameter_queue->mutex));
+						goto exitreducewait;
+					}
+				}
+				pthread_cond_signal(&(reduce_pool_p->parameter_queue->condition_changed));
+				pthread_mutex_unlock(&(reduce_pool_p->parameter_queue->mutex));
+				break;
+		}
+		sleep(1);
+	}
+	exitreducewait:
+	printf("DONE WAITING FOR REDUCE\n");
+	
+	for (int i = 0 ; i < count ; i++){
+		DataChunk* dc = (DataChunk*) (general_shm_ptr + reduce_array_offset + i*sizeof(DataChunk));
+		
+		printf("%s\n",(char*)(general_shm_ptr +  dc->data));		
+	}	
 cleanup:
 	//define cleanup stuff here
 	if (map_pool_p != NULL){
