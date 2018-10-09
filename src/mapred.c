@@ -67,7 +67,7 @@ int main(int argc, char** argv){
         printf("%lu Free memory on system\n",inf.freeram);
 
         unsigned long freeram = inf.freeram;
-        int planned_ram = 1<<30;
+        int planned_ram = 1<<25;
         printf("%d Planned allocation of ram\n",planned_ram);
         while(planned_ram > freeram){
                 planned_ram/=2;
