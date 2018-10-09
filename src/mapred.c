@@ -16,10 +16,13 @@
 #include <sys/mman.h>
 #include <sys/sysinfo.h>
 #include <filehandler.h>
+#include <pthread.h>
+#include <queue.h>
+#include <helper.h>
 #define BUFFER_SIZE 1024
-#define CHUNK_SIZE 10
+#define CHUNK_SIZE 5
 
-typedef enum impl{THREAD,PROCESS} Implementation;
+typedef enum impl_type{THREAD,PROCESS} Implementation;
 int main(int argc, char** argv){
 
 	//Parse commandline arguments
@@ -51,6 +54,7 @@ int main(int argc, char** argv){
 	shm_unlink("GENERAL_SHM");
 
 	shm_init_general(1<<30);	
+	printf("GENERAL SHM LOC: %lu\n",general_shm_ptr);
 	//Declare all pools
 	ProcessPool* map_pool_p = NULL;
 	ThreadPool* map_pool_t = NULL;
@@ -75,16 +79,41 @@ int main(int argc, char** argv){
 	}
 	
 	//1) Parse the input file
+	printf("TOKENIZING FILE\n");
 	int num_chunks = 0;
 	int datachunk_offset = tokenize_file(input_file,&num_chunks);
 
 	//2) Chunk the parsed info & pass to map workers
+	printf("CHUNKING DATA\n");	
+	//	i) Create shared memory region for return values
+	int return_array_size = (num_chunks) + 1;
+	int return_array_offset = shm_get_general(return_array_size * sizeof(KeyValue));
 	
-	for (int i = 0 ; i < num_chunks/CHUNK_SIZE ; i++){
+	//	ii) Set offsets of return in the pools;
+	switch(impl_type){
+		case THREAD:
+			map_pool_t->return_array_offset = return_array_offset;
+			map_pool_t->return_array_count = 0;
+			break;
+		case PROCESS:
+			map_pool_p->return_array_offset = return_array_offset;
+			map_pool_p->return_array_count = 0;
+			break;
+	}
+	printf("\tSENDING INSTRUCTIONS TO POOL QUEUE\n");	
+	//	iii) Send the instructions to the pool queue
+	int remainder = num_chunks % CHUNK_SIZE;
+	int total_num_splits =(remainder == 0)?num_chunks/CHUNK_SIZE:(num_chunks/CHUNK_SIZE + 1); 	
+	for (int i = 0 ; i < total_num_splits; i++){
 		Node new_instr;
 		new_instr.operation = Map;
-		new_instr.num_chunks = (i != (num_chunks/CHUNK_SIZE)-1)?CHUNK_SIZE:num_chunks%CHUNK_SIZE;	
+		new_instr.num_chunks = CHUNK_SIZE; 
+		if(i == total_num_splits - 1 && remainder != 0){
+			new_instr.num_chunks = remainder;
+		}
 		new_instr.data_offset = datachunk_offset + (i*sizeof(DataChunk)*CHUNK_SIZE);
+		DataChunk* chnk = (DataChunk*)(general_shm_ptr + datachunk_offset + (i*sizeof(DataChunk)*CHUNK_SIZE));
+		printf("\t\tCHUNK %d (numchunks: %d)\n",i,new_instr.num_chunks);
 		switch(impl_type){
 			case THREAD:
 				queue_enqueue(map_pool_t->parameter_queue, new_instr);
@@ -99,14 +128,110 @@ int main(int argc, char** argv){
 		}
 	}
 
+	//	iv) Wait for the running threads to finish up with maps
+	while(1){
+		printf("WAITING FOR MAPS TO FINISH\n");
+		pthread_mutex_lock(&(map_pool_t->parameter_queue->mutex));
+		switch(impl_type){
+			case THREAD:
+				printf("\tQUEUE HAS %d ELEMENTS\n",map_pool_t->parameter_queue->count);
+				if (queue_is_empty(map_pool_t->parameter_queue)){
+					printf("\tPOOL HAS %d WORKERS\n",map_pool_t->num_running_workers);
+					if (map_pool_t->num_running_workers == 0){
+						printf("DONE WAITING!\n");
+						pthread_mutex_unlock(&(map_pool_t->parameter_queue->mutex));
+						goto exitmapwait;
+					}
+				}
+				break;
+			case PROCESS:
+				break;
+		}
+		pthread_cond_signal(&(map_pool_t->parameter_queue->condition_changed));
+		pthread_mutex_unlock(&(map_pool_t->parameter_queue->mutex));
+		sleep(1);
+	}
+	exitmapwait:
+	printf("RECEIVED MAP DATA!\n");
+	//Shuffle data in between
+	sort(map_pool_t->return_array_offset,map_pool_t->return_array_count);	
+	switch(impl_type){
+		case THREAD:
+			printf("NUM TOTAL RETURN %d\n",map_pool_t->return_array_count);
+			for (int i = 0 ; i < map_pool_t->return_array_count ; i++){
+				KeyValue* k = (KeyValue*) (general_shm_ptr + map_pool_t->return_array_offset + (i * sizeof(KeyValue)));
+				DataChunk* d = (DataChunk*) (general_shm_ptr + k->key_offset);
+				printf("\t<%s,%d>\n",(char*) (general_shm_ptr + d->data),k->value);
+			}
+			break;
+	}
+	//3) Pass all of one key to reduce pool
 
-	//3) Pass chunks to map pool
+	int return_array_reduce_size = (num_chunks) + 1;
+	int return_array_reduce_offset = shm_get_general(return_array_size * sizeof(DataChunk));
+	
+	//	ii) Set offsets of return in the pools;
+	switch(impl_type){
+		case THREAD:
+			reduce_pool_t->return_array_offset = return_array_reduce_offset;
+			reduce_pool_t->return_array_count = 0;
+			break;
+		case PROCESS:
+			reduce_pool_p->return_array_offset = return_array_reduce_offset;
+			reduce_pool_p->return_array_count = 0;
+			break;
+	}
+	printf("\tSENDING INSTRUCTIONS TO POOL QUEUE\n");	
+	//	iii) Send the instructions to the pool queue
+	for (int i = 0 ; i < total_num_splits; i++){
+		Node new_instr;
+		new_instr.operation = Map;
+		new_instr.num_chunks = CHUNK_SIZE; 
+		if(i == total_num_splits - 1 && remainder != 0){
+			new_instr.num_chunks = remainder;
+		}
+		new_instr.data_offset = datachunk_offset + (i*sizeof(DataChunk)*CHUNK_SIZE);
+		DataChunk* chnk = (DataChunk*)(general_shm_ptr + datachunk_offset + (i*sizeof(DataChunk)*CHUNK_SIZE));
+		printf("\t\tCHUNK %d (numchunks: %d)\n",i,new_instr.num_chunks);
+		switch(impl_type){
+			case THREAD:
+				queue_enqueue(map_pool_t->parameter_queue, new_instr);
+				break;
 
-	//4) Combine data passed back from map pool (ie: sort by key)
+			case PROCESS:
+				queue_enqueue(map_pool_p->parameter_queue, new_instr);
+				break;
+			default:
+				printf("ERROR: NO IMPL SPECIFIED\n");
+				return 0;
+		}
+	}
 
-	//5) Pass all of one key to reduce pool
-
-	//6) Retrieve output data, and output to file
+	//	iv) Wait for the running threads to finish up with maps
+	while(1){
+		printf("WAITING FOR MAPS TO FINISH\n");
+		pthread_mutex_lock(&(map_pool_t->parameter_queue->mutex));
+		switch(impl_type){
+			case THREAD:
+				printf("\tQUEUE HAS %d ELEMENTS\n",map_pool_t->parameter_queue->count);
+				if (queue_is_empty(map_pool_t->parameter_queue)){
+					printf("\tPOOL HAS %d WORKERS\n",map_pool_t->num_running_workers);
+					if (map_pool_t->num_running_workers == 0){
+						printf("DONE WAITING!\n");
+						pthread_mutex_unlock(&(map_pool_t->parameter_queue->mutex));
+						goto exitmapwait;
+					}
+				}
+				break;
+			case PROCESS:
+				break;
+		}
+		pthread_cond_signal(&(map_pool_t->parameter_queue->condition_changed));
+		pthread_mutex_unlock(&(map_pool_t->parameter_queue->mutex));
+		sleep(1);
+	}
+	exitmapwait:
+	//4) Retrieve output data, and output to file
 
 cleanup:
 	//define cleanup stuff here

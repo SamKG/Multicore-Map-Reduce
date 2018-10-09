@@ -1,81 +1,48 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <types.h>
+#include <sharedmem.h>
 #include <string.h>
+#define MAXVALUE 100000000
 
-void printFile(char *outfile, key_value *result, char *app){
-	FILE *fp;
-	int i, j;
-	void *ptr = general_shm_ptr;
-	char *path = malloc(sizeof(char)*31);
-	//^assumes that file name wont be more than 30 chars long
-	sprintf(path, "/%s", outfile);
-	fp = fopen(path, "w");
-	free(path);
-	char *key;
-	if(strcmp(app, "wordcount") == 0){
-		//print key/tvalue
-		//need to decide on max
-		for(i=0; i<MAXVALUE; i++){
-			key = (char *) ptr + result[i]->key_offset;
-			fprintf(fp, "%s\t%d", key, result[i]->value);
-			if(result[i+1]->key_offset == NULL){
-				//can i compare to null? is this error
-				fclose(fp);
-				return;
-			}
-			fprintf(fp, "\n");
-		}
-		fclose(fp);
-		return;
-	}else{
-		//must be sort since already checked in beginning
-		//print key/n value# of times
-		for(i=0; i<MAXVALUE; i++){
-			key = (char *) ptr + result[i]->key_offset;
-			for(j=0; j<result[i]->value; j++){
-				fprintf(fp, "%s\n", key);
-			}
-			if(result[i+1]->key_offset == NULL){
-				fclose(fp);
-				return;
-		}
-		fclose(fp);
-		return;
-	}
+void printFile(char *outfile, KeyValue *result, char *app){
 }
 
-void sort(int offset, int totalKeys, char *app){
-	void *ptr = general_shm_ptr;
-	int keyvalsz = sizeof(key_value);
-	int i, j;
-	key_value *next;
-	key_value *prev;
-	char *nextKey, *prevKey;
-	key_value *tempInfo = malloc(sizeof(key_value));
-	for(i = 1; i< totalKeys; i++){
-		j=i;
-		while(j > 0){
-			next = (key_value *) ptr + offset + (j*keyvalsz);
-			prev = (key_value *) ptr + offset + ((j-1)*keyvalsz);
-			nextKey = (char *) ptr + next->key_offset;
-			prevKey = (char *) ptr + prev->key_offset;
-			if(strcmp(app, "wordcount") == 0){
-				if(strcmp(nextKey, prevKey) > 0){
-					break;
-				}
-			}else {//guaranteed to be int sort compare by ints
-				if(atoi(nextKey) > atoi(prevKey)){
-					break;
-				}
-			}
-			*tempInfo->key_offset = next->key_offset;
-			*tempInfo->value = next->value;
-			*next->key_offset = prev->key_offset;
-			*next->value = prev->value;
-			*prev->key_offset = tempInfo->key_offset;
-			*prev->value = tempInfo->value;
-			j--;
+
+int gt(DataChunk a, DataChunk b){
+	if (a.data_type == b.data_type){
+		char* da =(char*)( general_shm_ptr + a.data);
+		char* db = (char*) ( general_shm_ptr + b.data);
+		switch (a.data_type){
+			case LONG:;
+				long la =strtol(da,NULL,10);
+				long lb = strtol(db,NULL,10);
+				return la > lb;
+				break;	
+			case STRING:;
+				return !(strcmp(da,db) < 0); 
+				break;
 		}
+	}
+	return 0;
+}
+
+void sort(int offset, int totalKeys){
+	KeyValue* arr = (KeyValue*)(general_shm_ptr + offset);
+	int i = 1;
+	while ( i < totalKeys){
+		int j = i;
+		DataChunk* a = (DataChunk*) (general_shm_ptr + arr[j-1].key_offset);
+		DataChunk* b = (DataChunk*) (general_shm_ptr + arr[j].key_offset);
+		while (j > 0 && gt(*a,*b)){
+			KeyValue tmp = arr[j];
+			arr[j] = arr[j-1];
+			arr[j-1] = tmp;
+			j--;
+			a = (DataChunk*) (general_shm_ptr + arr[j-1].key_offset);
+			b = (DataChunk*) (general_shm_ptr + arr[j].key_offset);
+		}
+		i++;
 	}
 	return;
 }	

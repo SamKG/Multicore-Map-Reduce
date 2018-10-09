@@ -1,126 +1,112 @@
 /*:\
-     Daniel Pattathil - CS 416
-*/
+  Daniel Pattathil - CS 416
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sharedmem.h>
 #include <types.h>
+#include <wordcount.h>
 
-int main(int argc, char** argv){
+KeyValue* map(int offset, int size, int* countreturn){
+	printf("RUNNING MAP\n");
+	int i, j;
+	void* ptr = general_shm_ptr;
+	int chunksz = sizeof(DataChunk);
+	int keyvalsz = sizeof(KeyValue);
+	KeyValue temp_kv;
+	KeyValue keyvalues[size];
 
-}
+	//This is creating an array of KeyValue pairs with offset values to chunks
+	for(i = 0; i < size; i++)
+	{
+		keyvalues[i].key_offset = offset + (i*chunksz);
+		keyvalues[i].value = 1;
+	}
 
-int map(int offset, int size, int* countreturn){
-     int i, j;
-     void* ptr = general_shm_ptr;
-     int chunksz = sizeof(DataChunk);
-     int keyvalsz = sizeof(key_value);
-     key_value temp_kv;
-     key_value keyvalues[size];
-
-     //This is creating an array of KeyValue pairs with offset values to chunks
-     for(i = 0; i < size; i++)
-     {
-	keyvalues[i].key_offset = ((DataChunk) offset+ (i*chunksz))->data;
-        //keyvalues[i].key_offset = (offset + (i * chunksz));
-        keyvalues[i].value = 1;
-     }
-
-     //This is to sort the array of KeyValue pairs
-     //DataChunk* next_chunk;
-     //DataChunk* prev_chunk;
-
-     char *next_chunk;
-     char *prev_chunk;
-
-     for (i = 1 ; i < size; i++) {
-          j = i;
-          while (j > 0){
-               next_chunk = (char *)keyvalues[j].key_offset + ptr;
-               prev_chunk = (char *)keyvalues[j-1].key_offset + ptr;
-
-               //sort these tokens in order
-               if(strcmp(next_chunk, prev_chunk) > 0)
-               {
-                    break;
-               }
-
-               temp_kv = keyvalues[j];
-               keyvalues[j] = keyvalues[j-1];
-               keyvalues[j-1] = temp_kv;
-               j--;
-          }
-     }
-
-     //this compresses the array if there are same values within this chunk
-     int index;
-     int count = 0;
-     for(i = 0; i < size; i++){
-          index = i;
-          count++;
-          prev_chunk = (char *)keyvalues[index].key_offset + ptr;
-          j = i+1;
-          while(j < size){
-               next_chunk = (char *)keyvalues[j].key_offset + ptr;
-               if(strcmp(prev_chunk, next_chunk) == 0)
-               {
-                    keyvalues[index].value+=1;
-                    keyvalues[j] == NULL;
-               }
-               else{
-                    i = j;
-               }
-          }
-     }
-
-     //This is the offset for the resulting array of mappped key_value pairs
-     int mappedOffset = shm_get_general(count * keyvalsz);
-     for(i = 0, j = 0; i < size; i++){
-          if(keyvalues[i] == NULL){
-               continue;
-          }
-          else{
-                *(ptr + mappedOffset + (j * keyvalsz)) = keyvalues[i];
-               //((key_value)(ptr + mappedOffset + (j*keyvalsz)))->key_offset = keyvalues[i]->key_offset;
-	      // ((key_value)(ptr + mappedOffset + (j*keyvalsz)))->value = keyvalues[i]->value;
-		j++;
-          }
-     }
-     int nodeOffset = shm_get_general(Node);
-     (Node) *(ptr + nodeOffset)->operation = Map;
-     (Node) *(ptr + nodeOffset)->num_chunks = count;
-     (Node) *(ptr + nodeOffset)->data_offset = mappedOffset;
+	//This is to sort the array of KeyValue pairs
+	DataChunk* next_chunk;
+	DataChunk* prev_chunk;
 	
-     *countreturn = count;
+	printf("\tSORTING KEYS\n");
+	for (i = 1 ; i < size; i++) {
+		j = i;
+		while (j > 0){
+			next_chunk = (DataChunk *) (ptr + keyvalues[j].key_offset);
+			prev_chunk = (DataChunk *) (ptr + keyvalues[j-1].key_offset);
 
-     return nodeOffset;
+			//sort these tokens in order
+			if(strcmp((char*)(ptr + next_chunk->data),(char*)(ptr + prev_chunk->data)) > 0)
+			{
+				break;
+			}
 
+			temp_kv = keyvalues[j];
+			keyvalues[j] = keyvalues[j-1];
+			keyvalues[j-1] = temp_kv;
+			j--;
+		}
+	}
+
+	//this compresses the array if there are same values within this chunk
+	printf("\tCOMPRESSING ARRAY\n");
+	int index;
+	int count = 0;
+	
+	KeyValue final_arr[size];
+	final_arr[0] = keyvalues[0];
+	int curr_pos = 1;
+	for(i = 1; i < size; i++){
+		KeyValue comp = final_arr[curr_pos-1];	
+		KeyValue curr = keyvalues[i];
+		DataChunk* first = (DataChunk*) (ptr + comp.key_offset); 
+		DataChunk* second = (DataChunk*) (ptr + curr.key_offset);
+		char* a = (char*) (ptr + first->data);
+		char* b = (char*) (ptr + second->data);
+		if (strcmp(a,b) == 0) {
+			final_arr[curr_pos-1].value+=curr.value;
+		}
+		else {
+			final_arr[curr_pos++] = curr;
+		}
+	}
+	
+	KeyValue* return_arr = (KeyValue*) malloc(sizeof(KeyValue)*curr_pos);
+	for(int i = 0 ; i < curr_pos ; i++){
+		//printf("COPYING POS %d\n",i);
+		return_arr[i] = final_arr[i];
+		//printf("\t%d\n",return_arr[i].value);
+	}
+	*countreturn = curr_pos;
+	printf("\tDONE WITH MAP\n");
+	//This is the offset for the resulting array of mappped KeyValue pairs
+	return return_arr;
 }
 
 void reduce(int start, int end, int count, int insert_pos){
 
-     void* ptr = general_shm_ptr;
-     int keyvalsz = sizeof(key_value);
-     key_value* temp;
-     int total = 0;
+	void* ptr = general_shm_ptr;
+	int keyvalsz = sizeof(KeyValue);
+	KeyValue* temp;
+	int total = 0;
 
-     for(i = 0; i < count; i++){
-          temp = *(ptr + start + (i * keyvalsz));
-          total += temp->value;
-     }
+	for(int i = 0; i < count; i++){
+		temp = (KeyValue*) (ptr + start + (i * keyvalsz));
+		total += temp->value;
+	}
 
-     temp->value = total;
-     *(ptr+insert_pos) = temp;
+	temp->value = total;
+	*(KeyValue*)(ptr+insert_pos) = *temp;
 
-     DataChunk* temp_d;
-     if(end == 1){
-          for(i = 0; i < count; i++){
-               temp = *(ptr + start + (i * keyvalsz));
-               temp_d = ptr + temp->key_offset;
-               printf("%s\t%d\n", (char*) ptr + temp_d->data, temp->value)
-          }
-     }
+	DataChunk* temp_d;
+	if(end == 1){
+		for(int i = 0; i < count; i++){
+			temp = (KeyValue*)(ptr + start + (i * keyvalsz));
+			temp_d = ptr + temp->key_offset;
+			printf("%s\t%d\n", (char*) ptr + temp_d->data, temp->value);
+		}
+	}
 
-     return;
+	return;
 }

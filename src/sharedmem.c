@@ -100,7 +100,7 @@ void shm_destroy_general(){
 */
 int shm_get_general(int size){
 	pthread_mutex_lock(&general_shm_mutex);
-	printf("SHM_GENERAL: ALLOC %d SPACE\n",size);
+	//printf("SHM_GENERAL: ALLOC %d SPACE\n",size);
 	if (general_shm_pos + size >= general_shm_size){
 		/* have to resize shared space */
 		shm_resize_general(size);

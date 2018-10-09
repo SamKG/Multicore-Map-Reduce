@@ -1,8 +1,8 @@
 /**
-* THREAD POOL LIBRARY
-* Written by: Samyak K. Gupta for CS416-F18
- Responsibilities: To allow an arbitrary number of worker threads to work on a common task
-*/
+ * THREAD POOL LIBRARY
+ * Written by: Samyak K. Gupta for CS416-F18
+Responsibilities: To allow an arbitrary number of worker threads to work on a common task
+ */
 #include <types.h>
 #include <stdio.h>
 #include <string.h>
@@ -16,26 +16,27 @@
 #include <signal.h>
 #include <errno.h>
 #include <time.h>
+#include <wordcount.h>
 
 const int THREAD_POOL_SIZE = sizeof(ThreadPool);
 
 
 /**
-* Returns a pointer to a new ThreadPool, allocated in shared memory space. If it already exists, returns that instead.
-*
-*Inputs:
-*	name	-	The name to assign to the thread pool
-*	
-*/
+ * Returns a pointer to a new ThreadPool, allocated in shared memory space. If it already exists, returns that instead.
+ *
+ *Inputs:
+ *	name	-	The name to assign to the thread pool
+ *	
+ */
 ThreadPool* new_thread_pool(char* name, int number_workers){
 	printf("INITIALIZING TPOOL\n");
 	char* new_name = append_string(name,"_TPOOL");
-        int exists_flag = 0;
+	int exists_flag = 0;
 	int shared_fd = get_shared_fd(new_name,THREAD_POOL_SIZE,&exists_flag);
 
 	/* Initialize space for thread pool */
 	ThreadPool* pool = (ThreadPool*) mmap(NULL, THREAD_POOL_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_SHARED, shared_fd, 0);
-	
+
 	/* If it already exists, we don't need to reinitialize stuff */
 	if (exists_flag){
 		printf("POOL ALREADY EXISTS!\n");
@@ -43,17 +44,18 @@ ThreadPool* new_thread_pool(char* name, int number_workers){
 	}
 
 	pthread_mutexattr_init(&(pool->mutex_attr));
-        pthread_mutexattr_setpshared(&(pool->mutex_attr), PTHREAD_PROCESS_SHARED);
+	pthread_mutexattr_setpshared(&(pool->mutex_attr), PTHREAD_PROCESS_SHARED);
 
-        /* Initialize mutex (note - we need to set shared memory attr in mutex) */
-        pthread_mutex_init(&(pool->mutex), &(pool->mutex_attr));
+	/* Initialize mutex (note - we need to set shared memory attr in mutex) */
+	pthread_mutex_init(&(pool->mutex), &(pool->mutex_attr));
 
-        /* Lock the mutex while we initialize the queue */
-        pthread_mutex_lock(&(pool->mutex));
+	/* Lock the mutex while we initialize the queue */
+	pthread_mutex_lock(&(pool->mutex));
 
-        strcpy(pool->name,new_name);
+	strcpy(pool->name,new_name);
 	pool->parameter_queue = new_queue(name);
 	pool->thread_count = 0;
+	pool->num_running_workers = 0;
 	pool->running = 1;
 
 	while (pool->thread_count < number_workers){
@@ -61,16 +63,16 @@ ThreadPool* new_thread_pool(char* name, int number_workers){
 		pthread_create(&(pool->threads[pool->thread_count]),NULL,&start_thread_worker,(void*)pool);
 		pool->thread_count++;
 	}
-	
-		
-        /* Done initializing; We can now return the queue. */
-        pthread_mutex_unlock(&(pool->mutex));
 
-	cleanup:
+
+	/* Done initializing; We can now return the queue. */
+	pthread_mutex_unlock(&(pool->mutex));
+
+cleanup:
 
 	free(new_name);
 	printf("DONE INITIALIZING TPOOL (%d WORKERS CREATED)\n",pool->thread_count);
-        return pool;
+	return pool;
 }
 
 void destroy_thread_pool(ThreadPool* pool){
@@ -94,20 +96,49 @@ void* start_thread_worker(void* pool_ptr){
 		tm.tv_sec = time(NULL) + 1;
 		pthread_mutex_lock(&(pool->mutex));
 		int er = pthread_cond_timedwait(&(pool->parameter_queue->condition_changed),&(pool->mutex),&tm);
+		pool->num_running_workers++;
 		if (er == ETIMEDOUT){ 
 			//printf("THREAD TIMEOUT %d\n",tid);
 			if (pool->running == 0){
+				pool->num_running_workers--;
 				pthread_mutex_unlock(&(pool->mutex));				
 				break;
 			}
+			pool->num_running_workers--;
 			pthread_mutex_unlock(&(pool->mutex));				
 			continue; 
 		}
 		//printf("THREAD TICK %d\n",tid);
 		Node instruction = queue_dequeue(pool->parameter_queue);
-		printf("RECEIVED DATA  %d\n",tid);
 		pthread_mutex_unlock(&(pool->mutex));				
+		switch(instruction.operation){
+			case Map:
+				printf("RECEIVED MAP INSTRUCTION (%d remain in queue)\n\t\t",pool->parameter_queue->count);
+				printf("\tINSTRUCTION DATA: num_chunks: %d\n",instruction.num_chunks);
+				int num_keys = 0;
+				KeyValue* vals = map(instruction.data_offset,instruction.num_chunks,&num_keys);
+				//insert into final return array
+				pthread_mutex_lock(&(pool->mutex));
+				KeyValue* ret_arr = (KeyValue*) (general_shm_ptr + pool->return_array_offset + pool->return_array_count*sizeof(KeyValue));
+				pool->return_array_count+=num_keys;
+				pthread_mutex_unlock(&(pool->mutex));					
+				for (int i = 0 ; i < num_keys ; i++){
+					ret_arr[i] = vals[i];
+				}
+				printf("FINISH WITH INSTRUCTION\n");
+				free(vals);
+				break;
+			case Reduce:
+				printf("RECEIVED REDUCE INSTRUCTION\n");
+				break;
+			case Error:
+				//printf("RECEIVED ERROR: EMPTY NODE\n");
+				break;
+		}
+				pthread_mutex_lock(&(pool->mutex));
+				pool->num_running_workers--;
+				pthread_mutex_unlock(&(pool->mutex));					
 	}
-	
+
 	pthread_exit(NULL);
 }

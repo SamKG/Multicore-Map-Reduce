@@ -34,6 +34,7 @@ Queue* new_queue(char* name){
 	
 	/* We don't need to reinitialize stuff, cause it already exists */
 	if (exists_flag){
+		printf("ERROR: Queue shm already exists! (name: %s)\n",new_name);
 		goto cleanup;	
 	}
 
@@ -81,6 +82,7 @@ int queue_is_full(Queue* queue){
 
 Node queue_dequeue_private(Queue* queue){
 	Node return_value;
+	return_value.operation= Error;
 	if (queue_is_empty(queue)){
 		goto cleanup;
 	}
@@ -96,9 +98,9 @@ Node queue_dequeue(Queue* queue){
 	Node return_value;
 	
 	pthread_mutex_lock(&(queue->mutex));
-	
+	//printf("DEQUEUE VALUE\n");	
 	return_value = queue_dequeue_private(queue);
-
+	//printf("DONE DEQUEUE\n");
 	pthread_cond_signal(&(queue->condition_changed));	
 	pthread_mutex_unlock(&(queue->mutex));
 	return return_value;
@@ -106,6 +108,7 @@ Node queue_dequeue(Queue* queue){
 
 void queue_enqueue_private(Queue* queue,Node data){
 	if (queue_is_full(queue)){
+		printf("ERROR: QUEUE FULL!\n");
 		goto cleanup;
 	}
 	
@@ -118,9 +121,9 @@ void queue_enqueue_private(Queue* queue,Node data){
 }
 void queue_enqueue(Queue* queue, Node data){	
 	pthread_mutex_lock(&(queue->mutex));
-
+	//printf("ENQUEUE VAL INTO QUEUE\n");
 	queue_enqueue_private(queue,data);
-
+	//printf("DONE ENQUEUE\n");
 	pthread_cond_signal(&(queue->condition_changed));	
 	pthread_mutex_unlock(&(queue->mutex));
 }

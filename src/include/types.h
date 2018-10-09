@@ -12,7 +12,7 @@
 #define ValueType long long
 
 
-typedef enum op{Map,Reduce} Operation;
+typedef enum op{Map,Reduce,Error} Operation;
 typedef enum datatype{LONG, STRING, DOUBLE} DataType;
 /* STRUCT DEFINITIONS */
 
@@ -52,6 +52,9 @@ typedef struct Queue{
 */
 typedef struct process_pool{
         int process_count;
+	int return_array_offset;
+	int return_array_count;
+	int num_running_workers;
         Queue* parameter_queue;
         pthread_mutex_t mutex;
         pthread_mutexattr_t mutex_attr;
@@ -63,7 +66,10 @@ typedef struct process_pool{
 * Threadsafe thread pool used to allow management of process pool
 */
 typedef struct thread_pool{
-        int thread_count;;
+        int thread_count;
+	int return_array_offset;
+	int return_array_count;
+	int num_running_workers;
 	int running;
         Queue* parameter_queue;
         pthread_mutex_t mutex;
@@ -76,7 +82,7 @@ typedef struct thread_pool{
 */
 
 typedef struct key_value{
-	int key_offset;;
+	int key_offset;
 	ValueType value;
 } KeyValue;
 

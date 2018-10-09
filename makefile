@@ -5,7 +5,7 @@ ODIR=$(SRCDIR)/obj
 
 CC=gcc
 CFLAGS=-I $(INCDIR) -Wfatal-errors -Wall -g -std=c11
-DEPS=$(ODIR)/processpool.o $(ODIR)/queue.o $(ODIR)/sharedmem.o $(ODIR)/threadpool.o $(ODIR)/filehandler.o
+DEPS=$(ODIR)/processpool.o $(ODIR)/queue.o $(ODIR)/sharedmem.o $(ODIR)/threadpool.o $(ODIR)/filehandler.o $(ODIR)/wordcount.o $(ODIR)/helper.o
 
 LIBS=-lpthread -lrt
 
