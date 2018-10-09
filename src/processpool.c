@@ -100,11 +100,12 @@ void destroy_process_pool(ProcessPool* pool){
 	printf("DONE DESTROYING POOL\n");
 }
 void start_worker(ProcessPool* pool){
-	struct timespec tm;
 	 while(1){
-                tm.tv_sec = time(NULL) + 1;
                 sem_wait(&(pool->parameter_queue->semaphore_lock));
-                Node instruction = queue_dequeue(pool->parameter_queue);
+		pthread_mutex_lock(&(pool->mutex));
+                pool->num_running_workers++;
+		pthread_mutex_unlock(&(pool->mutex));
+		Node instruction = queue_dequeue(pool->parameter_queue);
                 switch(instruction.operation){
                         case Map:
                                 printf("RECEIVED MAP INSTRUCTION (%d remain in queue)\n\t\t",pool->parameter_queue->count);
@@ -136,6 +137,9 @@ void start_worker(ProcessPool* pool){
                                 //printf("RECEIVED ERROR: EMPTY NODE\n");
                                 break;
                 }
+		pthread_mutex_lock(&(pool->mutex));
+                pool->num_running_workers--;
+		pthread_mutex_unlock(&(pool->mutex));
         }
 
 

@@ -100,7 +100,6 @@ Node queue_dequeue(Queue* queue){
 	//printf("DEQUEUE VALUE\n");	
 	return_value = queue_dequeue_private(queue);
 	//printf("DONE DEQUEUE\n");
-	sem_post(&(queue->semaphore_lock));
 	pthread_mutex_unlock(&(queue->mutex));
 	return return_value;
 }

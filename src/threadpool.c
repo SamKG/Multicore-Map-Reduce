@@ -86,11 +86,12 @@ void destroy_thread_pool(ThreadPool* pool){
 }
 void* start_thread_worker(void* pool_ptr){
 	ThreadPool* pool = (ThreadPool*) pool_ptr;
-	struct timespec tm;
 	pthread_t tid = pthread_self();
 	while(1){
-		tm.tv_sec = time(NULL) + 1;
 		sem_wait(&(pool->parameter_queue->semaphore_lock));
+		pthread_mutex_lock(&(pool->mutex));
+                pool->num_running_workers++;
+                pthread_mutex_unlock(&(pool->mutex));
 		Node instruction = queue_dequeue(pool->parameter_queue);
 		switch(instruction.operation){
 			case Map:
@@ -123,6 +124,9 @@ void* start_thread_worker(void* pool_ptr){
 				//printf("RECEIVED ERROR: EMPTY NODE\n");
 				break;
 		}
+		pthread_mutex_lock(&(pool->mutex));
+                pool->num_running_workers--;
+                pthread_mutex_unlock(&(pool->mutex));
 	}
 
 	pthread_exit(NULL);

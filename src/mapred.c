@@ -19,6 +19,7 @@
 #include <pthread.h>
 #include <queue.h>
 #include <helper.h>
+#include <sys/sysinfo.h>
 #define BUFFER_SIZE 1024
 #define CHUNK_SIZE (num_chunks/num_maps)
 
@@ -52,6 +53,18 @@ int main(int argc, char** argv){
         shm_unlink("MAPRED_REDUCE_TPOOL");
         
 	shm_unlink("GENERAL_SHM");
+	
+	struct sysinfo inf;
+        sysinfo(&inf);
+        printf("%lu Free memory on system\n",inf.freeram);
+
+        unsigned long freeram = inf.freeram;
+        int planned_ram = 1<<30;
+        printf("%d Planned allocation of ram\n",planned_ram);
+        while(planned_ram > freeram){
+                planned_ram/=2;
+        	sysinfo(&inf);
+        }
 
 	shm_init_general(1<<30);	
 	printf("GENERAL SHM LOC: %lu\n",general_shm_ptr);
@@ -137,7 +150,10 @@ int main(int argc, char** argv){
 				printf("\tQUEUE HAS %d ELEMENTS\n",map_pool_t->parameter_queue->count);
 				if (queue_is_empty(map_pool_t->parameter_queue)){
 					map_pool_t->running = 0;
-					sleep(1);
+					while(map_pool_t->num_running_workers > 0){
+						printf("THERE ARE STILL %d WORKERS RUNNING\n",map_pool_t->num_running_workers);
+						sleep(1);
+					}
 					goto exitmapwait;
 				}
 				pthread_mutex_unlock(&(map_pool_t->parameter_queue->mutex));
@@ -147,7 +163,10 @@ int main(int argc, char** argv){
 				printf("\tQUEUE HAS %d ELEMENTS\n",map_pool_p->parameter_queue->count);
 				if (queue_is_empty(map_pool_p->parameter_queue)){
 					map_pool_p->running = 0;
-					sleep(1);
+					while(map_pool_p->num_running_workers > 0){
+						printf("THERE ARE STILL %d WORKERS RUNNING\n",map_pool_p->num_running_workers);
+						sleep(1);
+					}
 					goto exitmapwait;
 				}
 				pthread_mutex_unlock(&(map_pool_p->parameter_queue->mutex));
@@ -247,7 +266,10 @@ int main(int argc, char** argv){
 				printf("\tQUEUE HAS %d ELEMENTS\n",reduce_pool_t->parameter_queue->count);
 				if (queue_is_empty(reduce_pool_t->parameter_queue)){
 					reduce_pool_t->running = 0;
-					sleep(1);
+					while(reduce_pool_t->num_running_workers > 0){
+						printf("THERE ARE STILL %d WORKERS WORKING\n",reduce_pool_t->num_running_workers);
+						sleep(1);
+					}
 					goto exitreducewait;
 				}
 				pthread_mutex_unlock(&(reduce_pool_t->parameter_queue->mutex));
@@ -257,7 +279,10 @@ int main(int argc, char** argv){
 				printf("\tQUEUE HAS %d ELEMENTS\n",reduce_pool_p->parameter_queue->count);
 				if (queue_is_empty(reduce_pool_p->parameter_queue)){
 					reduce_pool_p->running = 0;
-					sleep(1);
+					while(reduce_pool_p->num_running_workers > 0){
+						printf("THERE ARE STILL %d WORKERS WORKING\n",reduce_pool_p->num_running_workers);
+						sleep(1);
+					}
 					goto exitreducewait;
 				}
 				pthread_mutex_unlock(&(reduce_pool_p->parameter_queue->mutex));
