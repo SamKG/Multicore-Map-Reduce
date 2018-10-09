@@ -197,7 +197,7 @@ int main(int argc, char** argv){
 
 
 	//3) Pass all of one key to reduce pool
-
+	printf("PASSING TO REDUCE!\n");
 	int reduce_array_size = (num_chunks) + 1;
 	int reduce_array_offset = shm_get_general(reduce_array_size * sizeof(DataChunk));
 	

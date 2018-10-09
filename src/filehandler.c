@@ -18,7 +18,7 @@
 
 #define BUFFER_SIZE 1024
 int tokenize_file(FILE* file,int* num_chunk_count){
-	const char* delimiters = " .,;:!-\r\n\t";
+	const char* delimiters = " .,;:!-—\r\n\t";
 
 	char buffer[BUFFER_SIZE];
 	char* last_token;
