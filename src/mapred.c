@@ -22,10 +22,16 @@
 #include <sys/sysinfo.h>
 #include <mapred_def.h>
 #define BUFFER_SIZE 1024
-#define CHUNK_SIZE (num_chunks/num_maps)
+#define CHUNK_SIZE max(num_chunks/num_maps, 1)
 
 App app_type = WORDCOUNT;
 typedef enum impl_type{THREAD,PROCESS} Implementation;
+int max(int a, int b){
+	if (a > b){
+		return a;
+	}
+	return b;
+}
 int main(int argc, char** argv){
 
 	//Parse commandline arguments

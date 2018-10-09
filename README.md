@@ -8,5 +8,5 @@ We do the operating of the systems
 * Kaitlin Dickerson (ked139)
 
 # Documentation
-See docs/ for details
+See docs/README for details on installing
 
