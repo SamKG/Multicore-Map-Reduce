@@ -102,7 +102,13 @@ char* reduce(int start, int count){
 			return final_str;
 			break;
 		case SORT:;
-			sprintf(final_str,"%s",key,val);	
+			  sprintf(final_str, "%s\n", key);
+			for(int i=1; i< val; i++){
+				sprintf(final_str + strlen(final_str),"%s",key);
+				if(i!= (val-1)){
+					sprintf(final_str + strlen(final_str), "\n");
+				}
+			}	
 			return final_str;
 			
 	}	
