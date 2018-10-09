@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #define MAX_QUEUE_SIZE 100000
 #define MAX_QUEUE_NAME_SIZE 256
@@ -40,8 +41,7 @@ typedef struct Node{
 typedef struct Queue{
         pthread_mutex_t mutex;
         pthread_mutexattr_t mutex_attr;
-        pthread_cond_t condition_changed;
-        pthread_condattr_t condition_attr;
+        sem_t semaphore_lock;
         int count;
         int front_pos,rear_pos;
 	Node array[MAX_QUEUE_SIZE];
@@ -56,6 +56,7 @@ typedef struct process_pool{
 	int return_array_offset;
 	int return_array_count;
 	int num_running_workers;
+	int running;
         Queue* parameter_queue;
         pthread_mutex_t mutex;
         pthread_mutexattr_t mutex_attr;

@@ -15,6 +15,7 @@
 #include <sharedmem.h>
 #include <types.h>
 #include <queue.h>
+#include <semaphore.h>
 /* CONSTANTS */
 const int QUEUE_SIZE_T = sizeof(Queue);
 const char* QUEUE_NAME_MODIFIER = "_QUEUE";
@@ -47,11 +48,9 @@ Queue* new_queue(char* name){
 
 	/* Lock the mutex while we initialize the queue */
 	pthread_mutex_lock(&(queue->mutex));
-
-	pthread_condattr_init(&(queue->condition_attr));	
-	pthread_condattr_setpshared(&(queue->condition_attr),PTHREAD_PROCESS_SHARED);
-	pthread_cond_init(&(queue->condition_changed),&(queue->condition_attr));
-		
+	
+	sem_init(&(queue->semaphore_lock),1,0);
+	
 	queue->count = 0;
 	queue->front_pos = 0; 
 	queue->rear_pos = MAX_QUEUE_SIZE - 1;
@@ -101,7 +100,7 @@ Node queue_dequeue(Queue* queue){
 	//printf("DEQUEUE VALUE\n");	
 	return_value = queue_dequeue_private(queue);
 	//printf("DONE DEQUEUE\n");
-	pthread_cond_signal(&(queue->condition_changed));	
+	sem_post(&(queue->semaphore_lock));
 	pthread_mutex_unlock(&(queue->mutex));
 	return return_value;
 }
@@ -124,7 +123,7 @@ void queue_enqueue(Queue* queue, Node data){
 	//printf("ENQUEUE VAL INTO QUEUE\n");
 	queue_enqueue_private(queue,data);
 	//printf("DONE ENQUEUE\n");
-	pthread_cond_signal(&(queue->condition_changed));	
+	sem_post(&(queue->semaphore_lock));
 	pthread_mutex_unlock(&(queue->mutex));
 }
 

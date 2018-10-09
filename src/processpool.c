@@ -15,6 +15,8 @@
 #include <processpool.h>
 #include <signal.h>
 #include <errno.h>
+#include <semaphore.h>
+
 
 const int PROCESS_POOL_SIZE = sizeof(ProcessPool);
 
@@ -53,6 +55,8 @@ ProcessPool* new_process_pool(char* name, int number_workers){
         strcpy(pool->name,new_name);
 	pool->parameter_queue = new_queue(name);
 	pool->process_count = 0;
+	pool->num_running_workers = 0;
+	pool->running = 1;
 
 	while (pool->process_count < number_workers){
 		errno = 0;
@@ -91,16 +95,50 @@ void destroy_process_pool(ProcessPool* pool){
 		kill(pool->processes[i],SIGKILL);
 	}
 	destroy_queue(pool->parameter_queue);
-	shm_unlink(pool->name);;
+	shm_unlink(pool->name);
 	munmap(pool,PROCESS_POOL_SIZE);
 	printf("DONE DESTROYING POOL\n");
 }
 void start_worker(ProcessPool* pool){
-	while(1){
-                pthread_mutex_lock(&(pool->mutex));
-                int er = pthread_cond_wait(&(pool->parameter_queue->condition_changed),&(pool->mutex));
+	struct timespec tm;
+	 while(1){
+                tm.tv_sec = time(NULL) + 1;
+                sem_wait(&(pool->parameter_queue->semaphore_lock));
                 Node instruction = queue_dequeue(pool->parameter_queue);
-                printf("RECEIVED DATA  %d\n",getpid());
-                pthread_mutex_unlock(&(pool->mutex));
+                switch(instruction.operation){
+                        case Map:
+                                printf("RECEIVED MAP INSTRUCTION (%d remain in queue)\n\t\t",pool->parameter_queue->count);
+                                printf("\tINSTRUCTION DATA: num_chunks: %d\n",instruction.num_chunks);
+                                int num_keys = 0;
+                                KeyValue* vals = map(instruction.data_offset,instruction.num_chunks,&num_keys);
+                                //insert into final return array
+                                KeyValue* ret_arr = (KeyValue*) (general_shm_ptr + pool->return_array_offset + pool->return_array_count*sizeof(KeyValue));
+                                pool->return_array_count+=num_keys;
+                                for (int i = 0 ; i < num_keys ; i++){
+                                        ret_arr[i] = vals[i];
+                                }
+                                printf("FINISH WITH INSTRUCTION\n");
+                                free(vals);
+                                break;
+                        case Reduce:
+                                printf("RECEIVED REDUCE INSTRUCTION\n");
+                                printf("\tINSTRUCTION DATA: num_chunks: %d\n",instruction.num_chunks);
+                                char* final_str = reduce(instruction.data_offset,instruction.num_chunks);
+                                int return_off = instruction.meta;
+                                int str_off = shm_get_general(strlen(final_str)+1);
+                                char* buff = (char*) (general_shm_ptr + str_off);
+                                strcpy(buff,final_str);
+                                DataChunk* dc = (DataChunk*) (general_shm_ptr + return_off);
+                                dc->data = str_off;
+                                free(final_str);
+                                break;
+                        case Error:
+                                //printf("RECEIVED ERROR: EMPTY NODE\n");
+                                break;
+                }
         }
+
+
+	exit(1);
 }
+

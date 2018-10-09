@@ -137,12 +137,8 @@ int main(int argc, char** argv){
 				printf("\tQUEUE HAS %d ELEMENTS\n",map_pool_t->parameter_queue->count);
 				if (queue_is_empty(map_pool_t->parameter_queue)){
 					map_pool_t->running = 0;
-					printf("\tPOOL HAS %d WORKERS\n",map_pool_t->num_running_workers);
-					if (map_pool_t->num_running_workers == 0){
-						printf("DONE WAITING!\n");
-						pthread_mutex_unlock(&(map_pool_t->parameter_queue->mutex));
-						goto exitmapwait;
-					}
+					sleep(1);
+					goto exitmapwait;
 				}
 				pthread_mutex_unlock(&(map_pool_t->parameter_queue->mutex));
 				break;
@@ -150,14 +146,10 @@ int main(int argc, char** argv){
 				pthread_mutex_lock(&(map_pool_p->parameter_queue->mutex));
 				printf("\tQUEUE HAS %d ELEMENTS\n",map_pool_p->parameter_queue->count);
 				if (queue_is_empty(map_pool_p->parameter_queue)){
-					printf("\tPOOL HAS %d WORKERS\n",map_pool_p->num_running_workers);
-					if (map_pool_p->num_running_workers == 0){
-						printf("DONE WAITING!\n");
-						pthread_mutex_unlock(&(map_pool_p->parameter_queue->mutex));
-						goto exitmapwait;
-					}
+					map_pool_p->running = 0;
+					sleep(1);
+					goto exitmapwait;
 				}
-				pthread_cond_signal(&(map_pool_p->parameter_queue->condition_changed));
 				pthread_mutex_unlock(&(map_pool_p->parameter_queue->mutex));
 				break;
 		}
@@ -255,12 +247,8 @@ int main(int argc, char** argv){
 				printf("\tQUEUE HAS %d ELEMENTS\n",reduce_pool_t->parameter_queue->count);
 				if (queue_is_empty(reduce_pool_t->parameter_queue)){
 					reduce_pool_t->running = 0;
-					printf("\tPOOL HAS %d WORKERS\n",reduce_pool_t->num_running_workers);
-					if (reduce_pool_t->num_running_workers == 0){
-						printf("DONE WAITING!\n");
-						pthread_mutex_unlock(&(reduce_pool_t->parameter_queue->mutex));
-						goto exitreducewait;
-					}
+					sleep(1);
+					goto exitreducewait;
 				}
 				pthread_mutex_unlock(&(reduce_pool_t->parameter_queue->mutex));
 				break;
@@ -268,14 +256,10 @@ int main(int argc, char** argv){
 				pthread_mutex_lock(&(reduce_pool_p->parameter_queue->mutex));
 				printf("\tQUEUE HAS %d ELEMENTS\n",reduce_pool_p->parameter_queue->count);
 				if (queue_is_empty(reduce_pool_p->parameter_queue)){
-					printf("\tPOOL HAS %d WORKERS\n",reduce_pool_p->num_running_workers);
-					if (reduce_pool_p->num_running_workers == 0){
-						printf("DONE WAITING!\n");
-						pthread_mutex_unlock(&(reduce_pool_p->parameter_queue->mutex));
-						goto exitreducewait;
-					}
+					reduce_pool_p->running = 0;
+					sleep(1);
+					goto exitreducewait;
 				}
-				pthread_cond_signal(&(reduce_pool_p->parameter_queue->condition_changed));
 				pthread_mutex_unlock(&(reduce_pool_p->parameter_queue->mutex));
 				break;
 		}

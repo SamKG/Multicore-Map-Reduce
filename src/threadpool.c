@@ -17,6 +17,7 @@ Responsibilities: To allow an arbitrary number of worker threads to work on a co
 #include <errno.h>
 #include <time.h>
 #include <wordcount.h>
+#include <semaphore.h>
 
 const int THREAD_POOL_SIZE = sizeof(ThreadPool);
 
@@ -78,11 +79,6 @@ cleanup:
 void destroy_thread_pool(ThreadPool* pool){
 	printf("DESTROYING THREAD POOL\n");
 	pool->running = 0;
-	for (int i = 0 ; i < pool->thread_count ; i++){
-
-		printf("JOINED\n");
-		pthread_join(pool->threads[i],NULL);
-	}
 	destroy_queue(pool->parameter_queue);
 	shm_unlink(pool->name);;
 	munmap(pool,THREAD_POOL_SIZE);
@@ -94,20 +90,8 @@ void* start_thread_worker(void* pool_ptr){
 	pthread_t tid = pthread_self();
 	while(1){
 		tm.tv_sec = time(NULL) + 1;
-		pthread_mutex_lock(&(pool->mutex));
-		int er = pthread_cond_timedwait(&(pool->parameter_queue->condition_changed),&(pool->mutex),&tm);
-		if (er == ETIMEDOUT || pool->running == 0){ 
-			if (pool->running == 0){
-				pthread_mutex_unlock(&(pool->mutex));				
-				break;
-			}
-			pthread_mutex_unlock(&(pool->mutex));				
-			continue; 
-		}
-		pool->num_running_workers++;
-		//printf("THREAD TICK %d\n",tid);
+		sem_wait(&(pool->parameter_queue->semaphore_lock));
 		Node instruction = queue_dequeue(pool->parameter_queue);
-		pthread_mutex_unlock(&(pool->mutex));				
 		switch(instruction.operation){
 			case Map:
 				printf("RECEIVED MAP INSTRUCTION (%d remain in queue)\n\t\t",pool->parameter_queue->count);
@@ -115,10 +99,8 @@ void* start_thread_worker(void* pool_ptr){
 				int num_keys = 0;
 				KeyValue* vals = map(instruction.data_offset,instruction.num_chunks,&num_keys);
 				//insert into final return array
-				pthread_mutex_lock(&(pool->mutex));
 				KeyValue* ret_arr = (KeyValue*) (general_shm_ptr + pool->return_array_offset + pool->return_array_count*sizeof(KeyValue));
 				pool->return_array_count+=num_keys;
-				pthread_mutex_unlock(&(pool->mutex));					
 				for (int i = 0 ; i < num_keys ; i++){
 					ret_arr[i] = vals[i];
 				}
@@ -141,9 +123,6 @@ void* start_thread_worker(void* pool_ptr){
 				//printf("RECEIVED ERROR: EMPTY NODE\n");
 				break;
 		}
-				pthread_mutex_lock(&(pool->mutex));
-				pool->num_running_workers--;
-				pthread_mutex_unlock(&(pool->mutex));					
 	}
 
 	pthread_exit(NULL);
