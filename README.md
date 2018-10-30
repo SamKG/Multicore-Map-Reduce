@@ -8,3 +8,8 @@ For previous assignments, see other branches
 * Daniel Pattahil (dp865)
 * Kaitlin Dickerson (ked139)
 
+# VM logins for this project (PLEASE ADD YOURS)
+
+| LOGIN | PASSWORD |
+| ----- | -------- |
+| superuser@classvm234.cs.rutgers.edu | PackHackMack2 |
