@@ -13,4 +13,5 @@ For previous assignments, see other branches
 | LOGIN | PASSWORD |
 | ----- | -------- |
 | superuser@classvm234.cs.rutgers.edu | PackHackMack2 |
-| superuser@classvm165.cs.rutgers.edy | GameLame4848 |
+| superuser@classvm165.cs.rutgers.edu | GameLame4848 |
+| superuser@classvm193.cs.rutgers.edu | CanningBanning4 |
