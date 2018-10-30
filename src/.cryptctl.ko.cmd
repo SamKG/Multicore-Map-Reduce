@@ -1,0 +1,1 @@
+cmd_/home/superuser/CS-416-F2018/src/cryptctl.ko := ld -r -m elf_x86_64 -z max-page-size=0x200000 -T ./scripts/module-common.lds --build-id  -o /home/superuser/CS-416-F2018/src/cryptctl.ko /home/superuser/CS-416-F2018/src/cryptctl.o /home/superuser/CS-416-F2018/src/cryptctl.mod.o ;  true

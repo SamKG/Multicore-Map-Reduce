@@ -1,0 +1,2 @@
+ccflags-y := -Iinclude -O2 -W -Wall -Wfatal-errors -Wstrict-prototypes -Wmissing-prototypes -Wno-unused-parameter
+obj-m = cryptctl.o
