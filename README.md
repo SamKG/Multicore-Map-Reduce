@@ -12,6 +12,28 @@ For previous assignments, see other branches
 
 | LOGIN | PASSWORD |
 | ----- | -------- |
-| superuser@classvm234.cs.rutgers.edu | PackHackMack2 |
+| superuser@classvm251.cs.rutgers.edu | PackHackMack2 |
 | superuser@classvm165.cs.rutgers.edu | GameLame4848 |
 | superuser@classvm193.cs.rutgers.edu | CanningBanning4 |
+
+
+# VM Graveyard:
+                 mo / )
+                 |/)\)
+                  /\_
+                  \__|=
+                 (    )
+                 __)(__
+           _____/      \\_____
+          |  _     ___   _   ||
+          | | \     |   | \  ||
+          | |  |    |   |  | ||
+          | |_/     |   |_/  ||
+          | | \     |   |    ||
+          | |  \    |   |    ||
+          | |   \. _|_. | .  ||
+          |                  ||
+          | Virtual Machines ||
+          |                  ||
+
+classvm234.cs.rutgers.edu
