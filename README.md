@@ -36,4 +36,4 @@ For previous assignments, see other branches
           | Virtual Machines ||
           |                  ||
 
-classvm234.cs.rutgers.edu
+classvm234.cs.rutgers.edu -- May you forever rest in peace (Cause of death: Some weird corruption of partition table?)
