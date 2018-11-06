@@ -7,7 +7,7 @@ KDIR=/lib/modules/`uname -r`/build
 CC=gcc
 CFLAGS= -Wfatal-errors -Wall -g -std=c11 -O2 -Wall -isystem /lib/modules/`uname -r`/build/include -D_KERNEL -DMODULE
 DEPS=
-
+CONFIG_MODULE_SIG=n
 LIBS=
 
 $(ODIR)/%.o: $(SRCDIR)/%.c 
