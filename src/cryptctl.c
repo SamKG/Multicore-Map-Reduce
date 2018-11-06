@@ -26,15 +26,16 @@ static struct file_operations fops =
 };
 
 static int __init crypt_init(void){
-	printk(KERN_ALERT "Crypt: Initializing...");
+	printk(KERN_WARNING "Crypt: Initializing...\n");
 	return 0;
 }	
-static void __exit crypt_cleanup(void){
-	printk(KERN_ALERT "Crypt: Cleaning up...");
+static void __exit crypt_exit(void){
+	printk(KERN_WARNING "Crypt: Cleaning up...\n");
 }
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Samyak K. Gupta");
 MODULE_DESCRIPTION("Cryptographic Linux Kernel Module for CS416");
 MODULE_VERSION("0.1");
-
+module_init(crypt_init);
+module_exit(crypt_exit);
