@@ -139,6 +139,7 @@ static void __exit crypt_exit(void){
 		device_destroy(cryptClass, workers[i].decrypter_dev_t);
 		cdev_del(&(workers[i].encrypter));
 		cdev_del(&(workers[i].decrypter));
+		kfree(workers[i].cipher);
 	}
 	device_destroy(cryptClass, MKDEV(majorNumber,0));
 	cdev_del(cryptctlCdev);
@@ -212,6 +213,16 @@ static long ctl_ioctl(struct file* filp,unsigned int cmd,unsigned long arg){
 	return 0;
 }
 //define worker methods below
+static cryptworker* get_worker_from_dev_t(dev_t d){
+	int i;
+	for (i = 0 ; i < numWorkers ; i++){
+		cryptworker* curr = &workers[i];	
+		if (curr->encrypter_dev_t == d || curr->decrypter_dev_t == d){
+			return curr;
+		}
+	}	
+	return NULL;
+}
 static int worker_open(struct inode* inode, struct file* filp){
 	try_module_get(THIS_MODULE);
 	file_private_data* dataptr = (file_private_data*) kmalloc(sizeof(file_private_data),0);
@@ -220,7 +231,7 @@ static int worker_open(struct inode* inode, struct file* filp){
 	dataptr->data = (char*) kmalloc(sizeof(char),0); 
 	dataptr->data_size = 1;
 	dataptr->data_count = 0;
-	dev_t d = MKDEV(imajor(inode),iminor(inode));
+	dataptr->worker = get_worker_from_dev_t(MKDEV(imajor(inode),iminor(inode)));
 	printk(KERN_WARNING "Crypt worker: Opened!\n");
 	return SUCCESS;
 }
@@ -248,21 +259,15 @@ char vigenere_decrypt(char key, char value){
 	return value;
 }
 
-static cryptworker* get_worker_from_dev_t(dev_t d){
-	int i;
-	for (i = 0 ; i < numWorkers ; i++){
-		cryptworker* curr = &workers[i];	
-		if (curr->encrypter_dev_t == d || curr->decrypter_dev_t == d){
-			return curr;
-		}
-	}	
-	return NULL;
-}
 
 static ssize_t encrypt_worker_read(struct file* filp, char* buff, size_t readsize, loff_t* fileoff){
 	int filepos = filp->f_pos;
 	file_private_data* dat = (file_private_data*) (filp->private_data);
 	if(dat == NULL || dat->data == NULL || readsize == 0){
+		return 0;
+	}
+	cryptworker* curr = dat->worker;
+	if(curr == NULL){
 		return 0;
 	}
 	char* tmp = (char*) kmalloc(sizeof(char)*readsize,0);
