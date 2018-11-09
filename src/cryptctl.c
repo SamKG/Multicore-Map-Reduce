@@ -18,8 +18,8 @@
 typedef struct cryptworker{
 	dev_t encrypter_dev_t;
 	dev_t decrypter_dev_t;
-	struct cdev* encrypter;
-	struct cdev* decrypter;
+	struct cdev encrypter;
+	struct cdev decrypter;
 } cryptworker;
 
 typedef struct file_private_data{
@@ -52,7 +52,8 @@ static ssize_t	decrypt_worker_read(struct file*, char*, size_t, loff_t*);
 static ssize_t	decrypt_worker_write(struct file*,	const char*, size_t, loff_t*);
 static long	worker_ioctl(struct file*,unsigned int,unsigned long);
 
-static dev_t	workers[MAX_DEVICE_COUNT];
+static cryptworker* workers = NULL;
+static int 	numWorkers = 0;
 static struct file_operations fops =
 {
 	.open = ctl_open,
@@ -80,10 +81,7 @@ static struct file_operations decrypt_workerfops =
 };
 static int __init crypt_init(void){
 	printk(KERN_WARNING "Crypt: Initializing...\n");
-	int i;;
-	for (i = 0 ; i < MAX_DEVICE_COUNT ; i++){
-		workers[i] = 0;
-	}
+	int i;
 	dev_t tmp;
 	int allocReturn = alloc_chrdev_region(&tmp, 0, MAX_DEVICE_COUNT, DEVICE_NAME);//register_chrdev(0, DEVICE_NAME, &fops);
 	if (allocReturn < 0){
@@ -91,6 +89,7 @@ static int __init crypt_init(void){
 		return allocReturn;
 	}
 	majorNumber = MAJOR(tmp);
+	minorCount = 0;
 	cryptClass = class_create(THIS_MODULE, CLASS_NAME);
 	if (IS_ERR(cryptClass)){
 		unregister_chrdev(majorNumber, DEVICE_NAME);	
@@ -110,14 +109,23 @@ static int __init crypt_init(void){
 		return PTR_ERR(cryptctlCdev);
 	}
 	cryptctlCdev->owner = THIS_MODULE;
-	device_create(cryptClass, NULL, MKDEV(majorNumber,0), NULL, DEVICE_NAME);
+	device_create(cryptClass, NULL, MKDEV(majorNumber,minorCount++), NULL, DEVICE_NAME);
 	cdev_add(cryptctlCdev, MKDEV(majorNumber,0), 1);	
 	
+	numWorkers = 0;
+	workers = (cryptworker*) kmalloc(sizeof(cryptworker)*MAX_DEVICE_COUNT,0);
 	printk(KERN_WARNING "Crypt: Finished initializing!\n");
 	return 0;
 }	
 static void __exit crypt_exit(void){
 	printk(KERN_WARNING "Crypt: Cleaning up...\n");
+	int i = 0;
+	for (i = 0 ; i < numWorkers ; i++){
+		device_destroy(cryptClass, workers[numWorkers].encrypter_dev_t);
+		device_destroy(cryptClass, workers[numWorkers].decrypter_dev_t);
+		cdev_del(&workers[numWorkers].encrypter);
+		cdev_del(&workers[numWorkers].decrypter);
+	}
 	device_destroy(cryptClass, MKDEV(majorNumber,0));
 	cdev_del(cryptctlCdev);
 	class_destroy(cryptClass);
@@ -144,8 +152,27 @@ static ssize_t ctl_write(struct file* filp, const char* msg, size_t strsize, lof
 }
 static long ctl_ioctl(struct file* filp,unsigned int cmd,unsigned long arg){
 	switch(cmd){
-	case CRYPTCTL_CREATE:
+	case CRYPTCTL_CREATE:;
+		cryptworker* newWorker = &(workers[numWorkers++]);
+		newWorker->encrypter_dev_t = MKDEV(majorNumber,minorCount++);
+		newWorker->decrypter_dev_t = MKDEV(majorNumber,minorCount++);
+		cdev_init(&newWorker->encrypter,&encrypt_workerfops);
+		cdev_init(&newWorker->decrypter,&decrypt_workerfops);
+		newWorker->encrypter.owner = THIS_MODULE;
+		newWorker->decrypter.owner = THIS_MODULE;
+		char* encrypterName = (char*) kmalloc(sizeof(char)*100,0);
+		snprintf(encrypterName, 100,"encrypt%d",numWorkers-1);
+		
+		char* decrypterName = (char*) kmalloc(sizeof(char)*100,0);
+		snprintf(decrypterName, 100,"encrypt%d",numWorkers-1);
+
+		device_create(cryptClass, NULL, newWorker->encrypter_dev_t, NULL, encrypterName);
+		device_create(cryptClass, NULL, newWorker->decrypter_dev_t, NULL, decrypterName);
+		cdev_add(&newWorker->encrypter, newWorker->encrypter_dev_t, 1);	
+		cdev_add(&newWorker->decrypter, newWorker->decrypter_dev_t, 1);	
 		printk(KERN_WARNING "Crypt: Creating new encrypt/decrypt pair!\n");
+		kfree(encrypterName);
+		kfree(decrypterName);
 		break;
 	default:
 		break;
@@ -172,10 +199,17 @@ static int worker_release(struct inode* inode, struct file* filp){
 	return SUCCESS;
 }
 char vigenere_encrypt(char key, char value){
-	int isCap = 0;
 	if(value >= ' ' && value <= '~'){
 		char tmp = value - ' ';
 		tmp = (tmp + key) % 95;
+		return (char) (tmp+' ');
+	}
+	return value;
+}
+char vigenere_decrypt(char key, char value){
+	if(value >= ' ' && value <= '~'){
+		char tmp = value - ' ';
+		tmp = ((tmp - key + 256)%256) % 95;
 		return (char) (tmp+' ');
 	}
 	return value;
@@ -211,7 +245,7 @@ static ssize_t encrypt_worker_write(struct file* filp, const char* msg, size_t s
 		krealloc(dat->data,(filepos + strsize)*2*sizeof(char),0);
 		dat->data_size = (filepos + strsize)*2;
 	}	
-	int i = 0;
+	int i;
 	for (i = 0 ; i < strsize ; i++){
 		dat->data[filepos+i] = tmp[i];
 		if (filepos + i > dat->data_count){
