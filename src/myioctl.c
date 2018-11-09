@@ -12,42 +12,77 @@ typedef struct pair{
 }pair;
 
 int ioctl_create(int fd, char *key){
-	int a = ioctl(fd, CREATE_PAIR, key);
+	int a = ioctl(fd, CRYPTCTL_CREATE, key);
 	if(a == -1){
 		printf("create pair failed");
 	}
 	return a;
-//CREATE_PAIR must return index id of new pair
 }
 
 
-void ioctl_delete(int cryptctl, int fd1, int fd2 ){
-	//have to see how destroy is implemented. either pass both in as struct and destory both in one method or call destroy twice 
+void ioctl_delete(int fd1, int fd2 ){
 
 }
 
-void ioctl_change_key(int cryptctl,int fd1, int fd2, char *key){
-		
+void ioctl_change_key(int fd1, int fd2, char *key){
+	int a = ioctl(fd1, CHANGE_KEY, key);
+	int b = ioctl(fd2, CHANGE_KEY, key);
+	if(a < 0|| b < 0){
+		printf("Error changing key\n");
+	}else{
+		printf("Change key successful\n");
+	}
+	return;		
 
 
 } 
-void ioctl_encrypt(int cryptctl, int fd, char *plain){
-//write then read
-
+void ioctl_encrypt(int fd, char *plain){
+	int a = write(fd, plain, strlen(plain));
+	if(a < 0){
+		printf("Error writing to device\n");
+	}else{
+		printf("Write to device successful\n");
+		printf("Press enter to read encrypted text\n");
+		getchar();
+		char message[MAX_MESSAGE]; //need to define max 
+		int b = read(fd, message, MAX_MESSAGE);
+		if(b < 0){
+			printf("Error reading from device\n");
+		}else{
+			printf("Read from device successful\n");
+		}
+	}
+	return; 
+		
 }
 
-void ioctl_decrypt(int cryptctl, int fd, char *plain){
-//write then read
+void ioctl_decrypt(int fd, char *ciphtext){
+	int a = write(fd, ciphtext, strlen(ciphtext));
+	if(a < 0){
+		printf("Error writing to device\n");
+	}else{
+		printf("Write to device successful\n");
+		printf("Press enter to read encrypted text\n");
+		getchar();
+		char message[MAX_MESSAGE]; //need to define max 
+		int b = read(fd, message, MAX_MESSAGE);
+		if(b < 0){
+			printf("Error reading from device\n");
+		}else{
+			printf("Read from device successful\n");
+		}
+	}
+	return;
 }
 
 int main(int argc, char** argv){
-	//how much we should allocate for one line of input (largest encryption file)
+	//how much we should allocate for one line of input MAX MESSAGe
 	char *ctl = "/dev/cryptctl";
 	int ctlfd = open(ctl, O_RDWR);
 	if(ctlfd == -1){
 		printf("cryptctl open already");
 	}
-	char input[10000];
+	char input[MAX_MESSAGE];
 	char *token;
 	pair devices[100];
 	char *enc = "cryptEncrypt";
@@ -76,7 +111,7 @@ int main(int argc, char** argv){
 		}else if(strcmp(token, "delete") == 0){
 			token = strtok(input, " ");
 			int index = atoi(token);
-			ioctl_delete(ctlfd, devices[index].fd1, devices[index].fd2);
+			ioctl_delete(devices[index].fd1, devices[index].fd2);
 			printf("Device pair %d was destroyed\n", index);
 			continue;
 		}else if(strcmp(token, "change_key") == 0){
@@ -84,7 +119,7 @@ int main(int argc, char** argv){
 			char *ind;
 			ind = strtok(input, " ");
 			int index = atoi(ind);
-			ioctl_change_key(ctlfd, devices[index].fd1, devices[index].fd2, token);
+			ioctl_change_key(devices[index].fd1, devices[index].fd2, token);
 			printf("Device pair %d's key was changed to %s\n",index, token);
 			continue;
 		}else if(strcmp(token, "encrypt") == 0){
@@ -92,14 +127,14 @@ int main(int argc, char** argv){
 			int index = atoi(token);
 			char *text; //do i have to malloc this
 			text = strtok(input, " ");
-			ioctl_encrypt(ctlfd, devices[index].fd1, text);
+			ioctl_encrypt(devices[index].fd1, text);
 			continue;
 		}else if(strcmp(token, "decrypt") == 0){
 			token = strtok(input, " ");
 			int index = atoi(token);
 			char *text;
 			text = strtok(input, " ");
-			ioctl_decrypt(ctlfd, devices[index].fd2, text);
+			ioctl_decrypt(devices[index].fd2, text);
 			continue;
 
 		}else {
