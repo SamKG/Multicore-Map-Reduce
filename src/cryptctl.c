@@ -164,7 +164,7 @@ static long ctl_ioctl(struct file* filp,unsigned int cmd,unsigned long arg){
 		snprintf(encrypterName, 100,"encrypt%d",numWorkers-1);
 		
 		char* decrypterName = (char*) kmalloc(sizeof(char)*100,0);
-		snprintf(decrypterName, 100,"encrypt%d",numWorkers-1);
+		snprintf(decrypterName, 100,"decrypt%d",numWorkers-1);
 
 		device_create(cryptClass, NULL, newWorker->encrypter_dev_t, NULL, encrypterName);
 		device_create(cryptClass, NULL, newWorker->decrypter_dev_t, NULL, decrypterName);
@@ -173,7 +173,7 @@ static long ctl_ioctl(struct file* filp,unsigned int cmd,unsigned long arg){
 		printk(KERN_WARNING "Crypt: Creating new encrypt/decrypt pair!\n");
 		kfree(encrypterName);
 		kfree(decrypterName);
-		break;
+		return numWorkers-1;
 	default:
 		break;
 	}
