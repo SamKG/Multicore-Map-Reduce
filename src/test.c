@@ -8,6 +8,8 @@ int main(void){
 	printf("OPENED WITH FD %d\n",fd);
 	printf("ERR %s\n",strerror(errno));
 	int ret = ioctl(fd,1);
+	printf("RECEIVED ENCRYPT/DECRYPT PAIR %d\n",ret);
 	close(fd);
-	printf("DONE!\n");
+	printf("DONE WITH CONTROLLER!\n");
+	int enc = open("/dev/encrypt0",O_RDWR);	
 }

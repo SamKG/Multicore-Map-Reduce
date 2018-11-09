@@ -118,13 +118,15 @@ static int __init crypt_init(void){
 	return 0;
 }	
 static void __exit crypt_exit(void){
+
 	printk(KERN_WARNING "Crypt: Cleaning up...\n");
 	int i = 0;
 	for (i = 0 ; i < numWorkers ; i++){
-		device_destroy(cryptClass, workers[numWorkers].encrypter_dev_t);
-		device_destroy(cryptClass, workers[numWorkers].decrypter_dev_t);
-		cdev_del(&workers[numWorkers].encrypter);
-		cdev_del(&workers[numWorkers].decrypter);
+		printk(KERN_WARNING "Crypt: Cleaning up workers %d\n",i);
+		device_destroy(cryptClass, workers[i].encrypter_dev_t);
+		device_destroy(cryptClass, workers[i].decrypter_dev_t);
+		cdev_del(&(workers[i].encrypter));
+		cdev_del(&(workers[i].decrypter));
 	}
 	device_destroy(cryptClass, MKDEV(majorNumber,0));
 	cdev_del(cryptctlCdev);
