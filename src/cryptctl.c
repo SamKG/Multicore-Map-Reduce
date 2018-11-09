@@ -255,6 +255,47 @@ static ssize_t encrypt_worker_write(struct file* filp, const char* msg, size_t s
 	kfree(tmp);
 	return i;
 }
+static ssize_t decrypt_worker_read(struct file* filp, char* buff, size_t readsize, loff_t* fileoff){
+	int filepos = filp->f_pos;
+	file_private_data* dat = (file_private_data*) (filp->private_data);
+	if(dat == NULL || dat->cipher == NULL || dat->data == NULL || readsize == 0){
+		return 0;
+	}
+	char* tmp = (char*) kmalloc(sizeof(char)*readsize,0);
+	int i = 0;
+	for (i = 0 ; i < readsize ; i++){
+		int currpos = i + filepos;
+		if (dat->data_count < currpos){
+			break;
+		}
+		tmp[i] = vigenere_encrypt(dat->cipher[i%dat->cipher_size],dat->data[currpos]);
+	}
+	copy_to_user(buff,tmp,i);	
+	kfree(tmp);
+	return i; 
+}
+static ssize_t decrypt_worker_write(struct file* filp, const char* msg, size_t strsize, loff_t* fileoff){	
+	int filepos = filp->f_pos;
+	file_private_data* dat = (file_private_data*) (filp->private_data);
+	if(dat == NULL || dat->cipher == NULL || dat->data == NULL || strsize == 0){
+		return 0;
+	}
+	char* tmp = (char*) kmalloc(sizeof(char)*strsize,0);	
+	copy_from_user(tmp,msg,strsize);
+	if (filepos + strsize > dat->data_size){
+		krealloc(dat->data,(filepos + strsize)*2*sizeof(char),0);
+		dat->data_size = (filepos + strsize)*2;
+	}	
+	int i;
+	for (i = 0 ; i < strsize ; i++){
+		dat->data[filepos+i] = tmp[i];
+		if (filepos + i > dat->data_count){
+			dat->data_count = filepos + i;
+		}
+	}
+	kfree(tmp);
+	return i;
+}
 static long worker_ioctl(struct file* filp,unsigned int cmd,unsigned long arg){
 	return 0;
 }
