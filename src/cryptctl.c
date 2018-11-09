@@ -9,7 +9,7 @@
 #define DEVICE_NAME "cryptctl"
 #define CLASS_NAME "crypt"
 #define SUCCESS 0
-#define MAX_DEVICE_COUNT 1024
+#define MAX_DEVICE_COUNT 64 
 #define PRIVATE_DATA_SIZE 4096
 
 //command defines
@@ -89,6 +89,11 @@ static struct file_operations decrypt_workerfops =
 };
 static int __init crypt_init(void){
 	printk(KERN_WARNING "Crypt: Initializing...\n");
+	workers = (cryptworker*) kmalloc(sizeof(cryptworker)*MAX_DEVICE_COUNT,GFP_KERNEL);
+	if (workers == NULL){
+		printk(KERN_ALERT "Crypt: Failed to allocate memory!\n");
+		return -1;
+	}
 	int i;
 	dev_t tmp;
 	int allocReturn = alloc_chrdev_region(&tmp, 0, MAX_DEVICE_COUNT, DEVICE_NAME);//register_chrdev(0, DEVICE_NAME, &fops);
@@ -119,12 +124,12 @@ static int __init crypt_init(void){
 	cryptctlCdev->owner = THIS_MODULE;
 	device_create(cryptClass, NULL, MKDEV(majorNumber,minorCount++), NULL, DEVICE_NAME);
 	cdev_add(cryptctlCdev, MKDEV(majorNumber,0), 1);	
-	
+
 	numWorkers = 0;
-	workers = (cryptworker*) kmalloc(sizeof(cryptworker)*MAX_DEVICE_COUNT,0);
 	i = 0;
 	for ( i = 0 ; i < MAX_DEVICE_COUNT ; i++){
 		workers[i].initialized = 0;
+		workers[i].cipher = NULL;
 	}
 	printk(KERN_WARNING "Crypt: Finished initializing!\n");
 	return 0;
@@ -139,11 +144,21 @@ static void __exit crypt_exit(void){
 		device_destroy(cryptClass, workers[i].decrypter_dev_t);
 		cdev_del(&(workers[i].encrypter));
 		cdev_del(&(workers[i].decrypter));
-		kfree(workers[i].cipher);
+		if(workers[i].cipher != NULL){
+			kfree(workers[i].cipher);
+		}
 	}
-	device_destroy(cryptClass, MKDEV(majorNumber,0));
+	if(cryptClass != NULL){
+		device_destroy(cryptClass, MKDEV(majorNumber,0));
+	}
+	if(cryptctlCdev != NULL){
 	cdev_del(cryptctlCdev);
-	class_destroy(cryptClass);
+	cryptctlCdev = NULL;
+	}
+	if(cryptClass != NULL){
+		class_destroy(cryptClass);
+		cryptClass = NULL;
+	}
 	unregister_chrdev(majorNumber, DEVICE_NAME);
 	printk(KERN_WARNING "Crypt: Done cleaning up! Goodbye!\n");
 }
@@ -167,48 +182,53 @@ static ssize_t ctl_write(struct file* filp, const char* msg, size_t strsize, lof
 }
 static long ctl_ioctl(struct file* filp,unsigned int cmd,unsigned long arg){
 	switch(cmd){
-	case CRYPTCTL_CREATE:;
-		cryptworker* newWorker = &(workers[numWorkers++]);
-		newWorker->encrypter_dev_t = MKDEV(majorNumber,minorCount++);
-		newWorker->decrypter_dev_t = MKDEV(majorNumber,minorCount++);
-		cdev_init(&newWorker->encrypter,&encrypt_workerfops);
-		cdev_init(&newWorker->decrypter,&decrypt_workerfops);
-		newWorker->encrypter.owner = THIS_MODULE;
-		newWorker->decrypter.owner = THIS_MODULE;
-		char* encrypterName = (char*) kmalloc(sizeof(char)*100,0);
-		snprintf(encrypterName, 100,"encrypt%d",numWorkers-1);
-		
-		char* decrypterName = (char*) kmalloc(sizeof(char)*100,0);
-		snprintf(decrypterName, 100,"decrypt%d",numWorkers-1);
+		case CRYPTCTL_CREATE:;
+				     cryptworker* newWorker = &(workers[numWorkers++]);
+				     newWorker->encrypter_dev_t = MKDEV(majorNumber,minorCount++);
+				     newWorker->decrypter_dev_t = MKDEV(majorNumber,minorCount++);
+				     cdev_init(&newWorker->encrypter,&encrypt_workerfops);
+				     cdev_init(&newWorker->decrypter,&decrypt_workerfops);
+				     newWorker->encrypter.owner = THIS_MODULE;
+				     newWorker->decrypter.owner = THIS_MODULE;
+				     char* encrypterName = (char*) kmalloc(sizeof(char)*100,GFP_KERNEL);
+				     snprintf(encrypterName, 100,"encrypt%d",numWorkers-1);
 
-		device_create(cryptClass, NULL, newWorker->encrypter_dev_t, NULL, encrypterName);
-		device_create(cryptClass, NULL, newWorker->decrypter_dev_t, NULL, decrypterName);
-		cdev_add(&newWorker->encrypter, newWorker->encrypter_dev_t, 1);	
-		cdev_add(&newWorker->decrypter, newWorker->decrypter_dev_t, 1);	
-		printk(KERN_WARNING "Crypt: Creating new encrypt/decrypt pair!\n");
-		kfree(encrypterName);
-		kfree(decrypterName);
-		newWorker->initialized = 1;
-		return numWorkers-1;
-	case CRYPTCTL_CIPHER:;
-		void* argData = (void*) arg;	
-		cryptctl_arg* args = (cryptctl_arg*) kmalloc(sizeof(cryptctl_arg),0);
-		copy_from_user(args,argData,sizeof(cryptctl_arg));		
-		if (args->workerNum < 0 || args->workerNum > numWorkers){
-			return -EINVAL;
-		}
-		cryptworker* worker = &workers[args->workerNum];
-		if (worker->cipher != NULL){
-			kfree(worker->cipher);
-			worker->cipher = NULL;
-		}
-		worker->cipher = (char*) kmalloc(sizeof(char)*args->cipherLength,0);
-		worker->cipher_size = args->cipherLength;
-		copy_from_user(worker->cipher,args->cipher,sizeof(char)*args->cipherLength);
-		kfree(args);
-		return 0;		
-	default:
-		break;
+				     char* decrypterName = (char*) kmalloc(sizeof(char)*100,GFP_KERNEL);
+				     snprintf(decrypterName, 100,"decrypt%d",numWorkers-1);
+
+				     device_create(cryptClass, NULL, newWorker->encrypter_dev_t, NULL, encrypterName);
+				     device_create(cryptClass, NULL, newWorker->decrypter_dev_t, NULL, decrypterName);
+				     cdev_add(&newWorker->encrypter, newWorker->encrypter_dev_t, 1);	
+				     cdev_add(&newWorker->decrypter, newWorker->decrypter_dev_t, 1);	
+				     printk(KERN_WARNING "Crypt: Creating new encrypt/decrypt pair!\n");
+				     kfree(encrypterName);
+				     kfree(decrypterName);
+				     newWorker->initialized = 1;
+				     return numWorkers-1;
+		case CRYPTCTL_CIPHER:;
+				     void* argData = (void*) arg;	
+				     cryptctl_arg* args = (cryptctl_arg*) kmalloc(sizeof(cryptctl_arg),GFP_KERNEL);
+				     copy_from_user(args,argData,sizeof(cryptctl_arg));		
+				     if (args->workerNum < 0 || args->workerNum > numWorkers){
+					     return -EINVAL;
+				     }
+				     printk(KERN_WARNING "Crypt: Received ioctl for worker %d\n",args->workerNum);
+				     cryptworker* worker = &workers[args->workerNum];
+				     if (worker->cipher != NULL){
+					     kfree(worker->cipher);
+					     worker->cipher = NULL;
+				     }
+				     worker->cipher = (char*) kmalloc(sizeof(char)*args->cipherLength,GFP_KERNEL);
+				     worker->cipher_size = args->cipherLength;
+				     copy_from_user(worker->cipher,args->cipher,sizeof(char)*args->cipherLength);
+				     int i;
+				     for (i = 0 ; i < worker->cipher_size ; i++){
+						printk(KERN_WARNING "CIPHER CHAR %c\n",worker->cipher[i]);
+					}
+				     kfree(args);
+				     return 0;		
+		default:
+				     break;
 	}
 	return 0;
 }
@@ -225,24 +245,30 @@ static cryptworker* get_worker_from_dev_t(dev_t d){
 }
 static int worker_open(struct inode* inode, struct file* filp){
 	try_module_get(THIS_MODULE);
-	file_private_data* dataptr = (file_private_data*) kmalloc(sizeof(file_private_data),0);
+	file_private_data* dataptr = (file_private_data*) kmalloc(sizeof(file_private_data),GFP_KERNEL);
 	filp->private_data = dataptr;
 	dataptr->type = 0;
-	dataptr->data = (char*) kmalloc(sizeof(char),0); 
+	dataptr->data = (char*) kmalloc(sizeof(char),GFP_KERNEL); 
 	dataptr->data_size = 1;
 	dataptr->data_count = 0;
 	dataptr->worker = get_worker_from_dev_t(MKDEV(imajor(inode),iminor(inode)));
-	printk(KERN_WARNING "Crypt worker: Opened!\n");
+	printk(KERN_WARNING "Cryptworker: Opened worker %s!\n",filp->f_path.dentry->d_iname);
 	return SUCCESS;
 }
 static int worker_release(struct inode* inode, struct file* filp){
 	module_put(THIS_MODULE);
-	kfree(filp->private_data);
-	filp->private_data = NULL;
-	printk(KERN_WARNING "Crypt worker: Released!\n");
+	if(filp->private_data != NULL){
+		if(((file_private_data*)(filp->private_data))->data != NULL){
+			kfree(((file_private_data*)(filp->private_data))->data);
+		}	
+		kfree(filp->private_data);
+		filp->private_data = NULL;
+	}	
+	else { printk(KERN_WARNING "Cryptworker: This should not happen\n");}
+	printk(KERN_WARNING "Cryptworker: %s Released!\n",filp->f_path.dentry->d_iname);
 	return SUCCESS;
 }
-char vigenere_encrypt(char key, char value){
+static char vigenere_encrypt(char key, char value){
 	if(value >= ' ' && value <= '~'){
 		char tmp = value - ' ';
 		tmp = (tmp + key) % 95;
@@ -250,7 +276,7 @@ char vigenere_encrypt(char key, char value){
 	}
 	return value;
 }
-char vigenere_decrypt(char key, char value){
+static char vigenere_decrypt(char key, char value){
 	if(value >= ' ' && value <= '~'){
 		char tmp = value - ' ';
 		tmp = ((tmp - key + 256)%256) % 95;
@@ -261,6 +287,55 @@ char vigenere_decrypt(char key, char value){
 
 
 static ssize_t encrypt_worker_read(struct file* filp, char* buff, size_t readsize, loff_t* fileoff){
+	int filepos = 0;
+				     printk(KERN_WARNING "Cryptworker: Worker %s reading %d bytes\n",filp->f_path.dentry->d_iname,readsize);
+	file_private_data* dat = (file_private_data*) (filp->private_data);
+	if(dat == NULL || dat->data == NULL || readsize == 0){
+		return 0;
+	}
+	cryptworker* curr = dat->worker;
+	if(curr == NULL){
+		return 0;
+	}
+	char* tmp = (char*) kmalloc(sizeof(char)*(readsize+1),GFP_KERNEL);
+	int i = 0;
+	for (i = 0 ; i < readsize ; i++){
+		int currpos = i + filepos;
+		if (dat->data_count < currpos){
+			break;
+		}
+		tmp[i] = vigenere_encrypt(dat->worker->cipher[i%dat->worker->cipher_size],dat->data[currpos]);
+	}
+	tmp[i] = '\0';
+	copy_to_user(buff,tmp,i);	
+	printk(KERN_WARNING "Cryptworker: Read %s from encrypter\n",tmp);
+	kfree(tmp);
+	return i; 
+}
+static ssize_t encrypt_worker_write(struct file* filp, const char* msg, size_t strsize, loff_t* fileoff){	
+        printk(KERN_WARNING "Cryptworker: Worker %s writing %d bytes\n",filp->f_path.dentry->d_iname,strsize);
+	file_private_data* dat = (file_private_data*) (filp->private_data);
+	if(dat == NULL || dat->data == NULL || strsize == 0){
+		return 0;
+	}
+	int filepos = 0;
+	char* tmp = (char*) kmalloc(sizeof(char)*(strsize+1),GFP_KERNEL);	
+	copy_from_user(tmp,msg,strsize);
+	while(filepos + strsize >= dat->data_size){
+		krealloc(dat->data,(filepos + strsize)*2*sizeof(char),GFP_KERNEL);
+		dat->data_size = (filepos + strsize)*2;
+		printk(KERN_WARNING "Cryptworker: Worker is reallocating to size %d\n",dat->data_size);
+	}	
+	int i;
+	tmp[strsize] = '\0';
+	for (i = 0 ; i < strsize ; i++){
+		dat->data[dat->data_count++] = tmp[i];
+	}
+	printk(KERN_WARNING "Cryptworker: Wrote %s to encrypter\n",tmp);
+	kfree(tmp);
+	return i;
+}
+static ssize_t decrypt_worker_read(struct file* filp, char* buff, size_t readsize, loff_t* fileoff){
 	int filepos = filp->f_pos;
 	file_private_data* dat = (file_private_data*) (filp->private_data);
 	if(dat == NULL || dat->data == NULL || readsize == 0){
@@ -270,55 +345,14 @@ static ssize_t encrypt_worker_read(struct file* filp, char* buff, size_t readsiz
 	if(curr == NULL){
 		return 0;
 	}
-	char* tmp = (char*) kmalloc(sizeof(char)*readsize,0);
+	char* tmp = (char*) kmalloc(sizeof(char)*readsize,GFP_KERNEL);
 	int i = 0;
 	for (i = 0 ; i < readsize ; i++){
 		int currpos = i + filepos;
 		if (dat->data_count < currpos){
 			break;
 		}
-		tmp[i] = vigenere_encrypt(dat->worker->cipher[i%dat->worker->cipher_size],dat->data[currpos]);
-	}
-	copy_to_user(buff,tmp,i);	
-	kfree(tmp);
-	return i; 
-}
-static ssize_t encrypt_worker_write(struct file* filp, const char* msg, size_t strsize, loff_t* fileoff){	
-	int filepos = filp->f_pos;
-	file_private_data* dat = (file_private_data*) (filp->private_data);
-	if(dat == NULL || dat->data == NULL || strsize == 0){
-		return 0;
-	}
-	char* tmp = (char*) kmalloc(sizeof(char)*strsize,0);	
-	copy_from_user(tmp,msg,strsize);
-	if (filepos + strsize > dat->data_size){
-		krealloc(dat->data,(filepos + strsize)*2*sizeof(char),0);
-		dat->data_size = (filepos + strsize)*2;
-	}	
-	int i;
-	for (i = 0 ; i < strsize ; i++){
-		dat->data[filepos+i] = tmp[i];
-		if (filepos + i > dat->data_count){
-			dat->data_count = filepos + i;
-		}
-	}
-	kfree(tmp);
-	return i;
-}
-static ssize_t decrypt_worker_read(struct file* filp, char* buff, size_t readsize, loff_t* fileoff){
-	int filepos = filp->f_pos;
-	file_private_data* dat = (file_private_data*) (filp->private_data);
-	if(dat == NULL || dat->worker->cipher == NULL || dat->data == NULL || readsize == 0){
-		return 0;
-	}
-	char* tmp = (char*) kmalloc(sizeof(char)*readsize,0);
-	int i = 0;
-	for (i = 0 ; i < readsize ; i++){
-		int currpos = i + filepos;
-		if (dat->data_count < currpos){
-			break;
-		}
-		tmp[i] = vigenere_encrypt(dat->worker->cipher[i%dat->worker->cipher_size],dat->data[currpos]);
+		tmp[i] = vigenere_decrypt(dat->worker->cipher[i%dat->worker->cipher_size],dat->data[currpos]);
 	}
 	copy_to_user(buff,tmp,i);	
 	kfree(tmp);
@@ -330,10 +364,10 @@ static ssize_t decrypt_worker_write(struct file* filp, const char* msg, size_t s
 	if(dat == NULL || dat->data == NULL || strsize == 0){
 		return 0;
 	}
-	char* tmp = (char*) kmalloc(sizeof(char)*strsize,0);	
+	char* tmp = (char*) kmalloc(sizeof(char)*strsize,GFP_KERNEL);	
 	copy_from_user(tmp,msg,strsize);
 	if (filepos + strsize > dat->data_size){
-		krealloc(dat->data,(filepos + strsize)*2*sizeof(char),0);
+		krealloc(dat->data,(filepos + strsize)*2*sizeof(char),GFP_KERNEL);
 		dat->data_size = (filepos + strsize)*2;
 	}	
 	int i;
