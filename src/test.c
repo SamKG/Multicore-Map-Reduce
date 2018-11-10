@@ -30,17 +30,19 @@ int main(void){
 		
 		ioctl(fd,3,&args);
 		int ret;	
-		int x = write(encr,"tomato",6,&ret);
-		char* tmp2[100];
-		read(encr,tmp2,6);
-		tmp2[6] = '\0';
+		char* strtoenc = "tomatomatotomatomato lasagna this is a sentence lol ! ~.~";
+		int l = strlen(strtoenc);
+		int x = write(encr,strtoenc,l,ret);
+		char* tmp2[10000];
+		read(encr,tmp2,l);
+		tmp2[l+1] = '\0';
 		tmp2[7] = '\0';
 		fflush(stdout);
 		printf("Read %s \n",tmp2);
 
-		int y = write(decr,tmp2,6,&ret);
-		read(decr,tmp2,6);
-		tmp2[6] = '\0';
+		int y = write(decr,tmp2,l,&ret);
+		read(decr,tmp2,l);
+		tmp2[l+1] = '\0';
 		tmp2[7] = '\0';
 		fflush(stdout);
 		printf("Read %s \n",tmp2);
