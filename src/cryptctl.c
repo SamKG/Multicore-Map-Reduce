@@ -191,10 +191,10 @@ static long ctl_ioctl(struct file* filp,unsigned int cmd,unsigned long arg){
 				     newWorker->encrypter.owner = THIS_MODULE;
 				     newWorker->decrypter.owner = THIS_MODULE;
 				     char* encrypterName = (char*) vmalloc(sizeof(char)*100);
-				     snprintf(encrypterName, 100,"encrypt%d",numWorkers-1);
+				     snprintf(encrypterName, 100,"cryptEncrypt%d",numWorkers-1);
 
 				     char* decrypterName = (char*) vmalloc(sizeof(char)*100);
-				     snprintf(decrypterName, 100,"decrypt%d",numWorkers-1);
+				     snprintf(decrypterName, 100,"cryptDecrypt%d",numWorkers-1);
 
 				     device_create(cryptClass, NULL, newWorker->encrypter_dev_t, NULL, encrypterName);
 				     device_create(cryptClass, NULL, newWorker->decrypter_dev_t, NULL, decrypterName);
