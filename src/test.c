@@ -17,7 +17,7 @@ int main(void){
 	printf("RECEIVED ENCRYPT/DECRYPT PAIR %d\n",ret);
 	if (ret >= 0){
 		char* tmp[100];
-		sprintf(tmp,"/dev/encrypt%d",ret);
+		sprintf(tmp,"/dev/cryptEncrypt%d",ret);
 		printf("OPENING %s\n",tmp);
 		cryptctl_arg args;
 		args.workerNum = ret;
@@ -25,7 +25,7 @@ int main(void){
 		args.cipherLength = 6;
 
 		int encr = open(tmp,O_RDWR);
-		sprintf(tmp,"/dev/decrypt%d",ret);
+		sprintf(tmp,"/dev/cryptDecrypt%d",ret);
 		int decr = open(tmp,O_RDWR);
 		
 		ioctl(fd,3,&args);

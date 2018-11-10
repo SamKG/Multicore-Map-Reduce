@@ -152,8 +152,8 @@ static void __exit crypt_exit(void){
 		device_destroy(cryptClass, MKDEV(majorNumber,0));
 	}
 	if(cryptctlCdev != NULL){
-	cdev_del(cryptctlCdev);
-	cryptctlCdev = NULL;
+		cdev_del(cryptctlCdev);
+		cryptctlCdev = NULL;
 	}
 	if(cryptClass != NULL){
 		class_destroy(cryptClass);
@@ -223,8 +223,8 @@ static long ctl_ioctl(struct file* filp,unsigned int cmd,unsigned long arg){
 				     copy_from_user(worker->cipher,args->cipher,sizeof(char)*args->cipherLength);
 				     int i;
 				     for (i = 0 ; i < worker->cipher_size ; i++){
-						printk(KERN_WARNING "CIPHER CHAR %c\n",worker->cipher[i]);
-					}
+					     printk(KERN_WARNING "CIPHER CHAR %c\n",worker->cipher[i]);
+				     }
 				     vfree(args);
 				     return 0;		
 		default:
@@ -291,7 +291,7 @@ static char vigenere_decrypt(char key, char value){
 
 static ssize_t encrypt_worker_read(struct file* filp, char* buff, size_t readsize, loff_t* fileoff){
 	int filepos = 0;
-				     printk(KERN_WARNING "Cryptworker: Worker %s reading %d bytes\n",filp->f_path.dentry->d_iname,readsize);
+	printk(KERN_WARNING "Cryptworker: Worker %s reading %d bytes\n",filp->f_path.dentry->d_iname,readsize);
 	file_private_data* dat = (file_private_data*) (filp->private_data);
 	if(dat == NULL || dat->data == NULL || readsize == 0){
 		return 0;
@@ -316,7 +316,7 @@ static ssize_t encrypt_worker_read(struct file* filp, char* buff, size_t readsiz
 	return i; 
 }
 static ssize_t encrypt_worker_write(struct file* filp, const char* msg, size_t strsize, loff_t* fileoff){	
-        printk(KERN_WARNING "Cryptworker: Worker %s writing %d bytes\n",filp->f_path.dentry->d_iname,strsize);
+	printk(KERN_WARNING "Cryptworker: Worker %s writing %d bytes\n",filp->f_path.dentry->d_iname,strsize);
 	file_private_data* dat = (file_private_data*) (filp->private_data);
 	if(dat == NULL || dat->data == NULL || strsize == 0){
 		return 0;
@@ -346,7 +346,7 @@ static ssize_t encrypt_worker_write(struct file* filp, const char* msg, size_t s
 }
 static ssize_t decrypt_worker_read(struct file* filp, char* buff, size_t readsize, loff_t* fileoff){
 	int filepos = 0;
-				     printk(KERN_WARNING "Cryptworker: Worker %s reading %d bytes\n",filp->f_path.dentry->d_iname,readsize);
+	printk(KERN_WARNING "Cryptworker: Worker %s reading %d bytes\n",filp->f_path.dentry->d_iname,readsize);
 	file_private_data* dat = (file_private_data*) (filp->private_data);
 	if(dat == NULL || dat->data == NULL || readsize == 0){
 		return 0;
@@ -371,7 +371,7 @@ static ssize_t decrypt_worker_read(struct file* filp, char* buff, size_t readsiz
 	return i; 
 }
 static ssize_t decrypt_worker_write(struct file* filp, const char* msg, size_t strsize, loff_t* fileoff){	
-        printk(KERN_WARNING "Cryptworker: Worker %s writing %d bytes\n",filp->f_path.dentry->d_iname,strsize);
+	printk(KERN_WARNING "Cryptworker: Worker %s writing %d bytes\n",filp->f_path.dentry->d_iname,strsize);
 	file_private_data* dat = (file_private_data*) (filp->private_data);
 	if(dat == NULL || dat->data == NULL || strsize == 0){
 		return 0;
