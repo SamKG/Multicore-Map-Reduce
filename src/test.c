@@ -30,7 +30,7 @@ int main(void){
 		
 		ioctl(fd,3,&args);
 		int ret;	
-		char* strtoenc = "tomatomatotomatomato lasagna this is a sentence lol ! ~.~";
+		char* strtoenc = "Hello, World";
 		int l = strlen(strtoenc);
 		int x = write(encr,strtoenc,l,ret);
 		char* tmp2[10000];

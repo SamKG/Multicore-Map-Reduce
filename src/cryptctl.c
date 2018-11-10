@@ -279,12 +279,14 @@ static char toLower(char value){
 static char vigenere_encrypt(char key, char value){
 	key = toLower(key);
 	if (('a' > key || key > 'z') && ('A' > key || key > 'Z')){
-		printk(KERN_WARNING "SPAGHET%c\n",key);
 		return value;	
 	}
 	key = key - 'a';
 	if(('a' <= value && value <= 'z') || ('A' <= value && value <= 'Z')){
-		char shift = (value <= 'z')?'a':'A';		
+		char shift = 'A';
+		if('a' <= value  && value <= 'z'){
+			shift = 'a';
+		}		
 		char tmp = value - shift;
 		tmp = (tmp + key) % ('z' - 'a');
 		return (char) (tmp+shift);
@@ -298,7 +300,10 @@ static char vigenere_decrypt(char key, char value){
 	}
 	key = key - 'a';
 	if(('a' <= value && value <= 'z') || ('A' <= value && value <= 'Z')){
-		char shift = (value <= 'z')?'a':'A';		
+		char shift = 'A';
+		if('a' <= value  && value <= 'z'){
+			shift = 'a';
+		}		
 		char tmp = value - shift;
 		tmp = (tmp - key);
 		while(tmp < 0 ){
