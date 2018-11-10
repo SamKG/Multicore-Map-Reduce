@@ -17,6 +17,8 @@ cryptctl: $(SRCDIR)/cryptctl.c $(DEPS)
 	make -C $(KDIR) M=$(PWD)/$(SRCDIR) modules
 test: $(ODIR)/test.o $(DEPS)
 	$(CC) $^ -o $(BINDIR)/$@ $(CFLAGS) $(LIBS)
+cryptdriver: $(ODIR)/cryptdriver.o $(DEPS)
+	$(CC) $^ -o $(BINDIR)/$@ $(CFLAGS) $(LIBS)
 	
 .PHONY: clean
 clean:

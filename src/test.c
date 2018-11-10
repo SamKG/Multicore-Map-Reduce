@@ -23,15 +23,27 @@ int main(void){
 		args.workerNum = ret;
 		args.cipher = "POTATO";
 		args.cipherLength = 6;
+
 		int encr = open(tmp,O_RDWR);
+		sprintf(tmp,"/dev/decrypt%d",ret);
+		int decr = open(tmp,O_RDWR);
 		
 		ioctl(fd,3,&args);
 		int ret;	
-	int x = write(encr,"tomato",6,&ret);
-		printf("Wrote %d bytes (return %d)\n",ret,x);
-		read(encr,tmp,6);
-		tmp[6] = '\0';
-		printf("Read %s \n",tmp);
+		int x = write(encr,"tomato",6,&ret);
+		char* tmp2[100];
+		read(encr,tmp2,6);
+		tmp2[6] = '\0';
+		tmp2[7] = '\0';
+		fflush(stdout);
+		printf("Read %s \n",tmp2);
+
+		int y = write(decr,tmp2,6,&ret);
+		read(decr,tmp2,6);
+		tmp2[6] = '\0';
+		tmp2[7] = '\0';
+		fflush(stdout);
+		printf("Read %s \n",tmp2);
 	}
 	close(fd);
 	printf("DONE WITH CONTROLLER!\n");

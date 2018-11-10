@@ -201,8 +201,8 @@ static long ctl_ioctl(struct file* filp,unsigned int cmd,unsigned long arg){
 				     cdev_add(&newWorker->encrypter, newWorker->encrypter_dev_t, 1);	
 				     cdev_add(&newWorker->decrypter, newWorker->decrypter_dev_t, 1);	
 				     printk(KERN_WARNING "Crypt: Creating new encrypt/decrypt pair!\n");
-				     //vfree(encrypterName);
-				     //vfree(decrypterName);
+				     vfree(encrypterName);
+				     vfree(decrypterName);
 				     newWorker->initialized = 1;
 				     return numWorkers-1;
 		case CRYPTCTL_CIPHER:;
@@ -279,7 +279,10 @@ static char vigenere_encrypt(char key, char value){
 static char vigenere_decrypt(char key, char value){
 	if(value >= ' ' && value <= '~'){
 		char tmp = value - ' ';
-		tmp = ((tmp - key + 256)%256) % 95;
+		tmp = tmp - key;
+		while(tmp < 0){
+			tmp+=95;
+		}
 		return (char) (tmp+' ');
 	}
 	return value;
@@ -342,7 +345,8 @@ static ssize_t encrypt_worker_write(struct file* filp, const char* msg, size_t s
 	return i;
 }
 static ssize_t decrypt_worker_read(struct file* filp, char* buff, size_t readsize, loff_t* fileoff){
-	int filepos = filp->f_pos;
+	int filepos = 0;
+				     printk(KERN_WARNING "Cryptworker: Worker %s reading %d bytes\n",filp->f_path.dentry->d_iname,readsize);
 	file_private_data* dat = (file_private_data*) (filp->private_data);
 	if(dat == NULL || dat->data == NULL || readsize == 0){
 		return 0;
@@ -351,7 +355,7 @@ static ssize_t decrypt_worker_read(struct file* filp, char* buff, size_t readsiz
 	if(curr == NULL){
 		return 0;
 	}
-	char* tmp = (char*) vmalloc(sizeof(char)*readsize);
+	char* tmp = (char*) vmalloc(sizeof(char)*(readsize+1));
 	int i = 0;
 	for (i = 0 ; i < readsize ; i++){
 		int currpos = i + filepos;
@@ -360,19 +364,22 @@ static ssize_t decrypt_worker_read(struct file* filp, char* buff, size_t readsiz
 		}
 		tmp[i] = vigenere_decrypt(dat->worker->cipher[i%dat->worker->cipher_size],dat->data[currpos]);
 	}
+	tmp[i] = '\0';
 	copy_to_user(buff,tmp,i);	
+	printk(KERN_WARNING "Cryptworker: Read %s from encrypter\n",tmp);
 	vfree(tmp);
 	return i; 
 }
 static ssize_t decrypt_worker_write(struct file* filp, const char* msg, size_t strsize, loff_t* fileoff){	
-	int filepos = filp->f_pos;
+        printk(KERN_WARNING "Cryptworker: Worker %s writing %d bytes\n",filp->f_path.dentry->d_iname,strsize);
 	file_private_data* dat = (file_private_data*) (filp->private_data);
 	if(dat == NULL || dat->data == NULL || strsize == 0){
 		return 0;
 	}
-	char* tmp = (char*) vmalloc(sizeof(char)*strsize);	
+	int filepos = 0;
+	char* tmp = (char*) vmalloc(sizeof(char)*(strsize+1));	
 	copy_from_user(tmp,msg,strsize);
-	if (filepos + strsize > dat->data_size){
+	while(filepos + strsize >= dat->data_size){
 		char* tmp = (char*)vmalloc((filepos + strsize)*2*sizeof(char));
 		int i;
 		for(i = 0 ; i < dat->data_size ; i++){
@@ -381,14 +388,14 @@ static ssize_t decrypt_worker_write(struct file* filp, const char* msg, size_t s
 		vfree(dat->data);
 		dat->data =  tmp;
 		dat->data_size = (filepos + strsize)*2;
+		printk(KERN_WARNING "Cryptworker: Worker is reallocating to size %d\n",dat->data_size);
 	}	
 	int i;
+	tmp[strsize] = '\0';
 	for (i = 0 ; i < strsize ; i++){
-		dat->data[filepos+i] = tmp[i];
-		if (filepos + i > dat->data_count){
-			dat->data_count = filepos + i;
-		}
+		dat->data[dat->data_count++] = tmp[i];
 	}
+	printk(KERN_WARNING "Cryptworker: Wrote %s to encrypter\n",tmp);
 	vfree(tmp);
 	return i;
 }
