@@ -10,7 +10,7 @@ typedef struct cryptctl_arg{
 } cryptctl_arg;
 
 int main(void){
-	int fd = open("/dev/cryptctl",O_NONBLOCK);	
+	int fd = open("/dev/cryptctl",0);	
 	printf("OPENED WITH FD %d\n",fd);
 	printf("ERR %s\n",strerror(errno));
 	int ret = ioctl(fd,1);
